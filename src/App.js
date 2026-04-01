@@ -950,6 +950,7 @@ function LoginPage({ t, s, isRtl, fontFamily, onLogin, onBack }) {
 // ==================== DASHBOARD ====================
 function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, setDashPage, onLogout, cashIQD, setCashIQD, cashUSD, setCashUSD, exchangeRate, setExchangeRate, cashLog, setCashLog, addCashLog, setDark, setLang, fontIdx, setFontIdx, users, setUsers, isFrozen, messages, setMessages, unreadCount, markMessageAsRead }) {
   const [formatModal, setFormatModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [fmtUser, setFmtUser] = useState(""); 
   const [fmtPass, setFmtPass] = useState("");
   const [showUserForm, setShowUserForm] = useState(false);
@@ -1055,7 +1056,7 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
 
   return (
     <div dir={isRtl?"rtl":"ltr"} style={{ display: "flex", minHeight: "100vh", background: s.bg, fontFamily, color: s.text }}>
-<aside style={{ width: 280, minWidth: 280, background: "#f5f9f7", border: "1px solid rgba(78,168,142,0.3)", borderRadius: "0 24px 24px 0", borderLeft: "4px solid #4EA88E", display: "flex", flexDirection: "column", position: "fixed", top: 0, bottom: 0, [isRtl?"right":"left"]: 0, zIndex: 100, overflowY: "auto", boxShadow: "8px 0 30px rgba(0,0,0,0.08)" }}>
+<aside className={sidebarOpen ? "open" : ""} style={{ width: 280, minWidth: 280, background: "#f5f9f7", border: "1px solid rgba(78,168,142,0.3)", borderRadius: "0 24px 24px 0", borderLeft: "4px solid #4EA88E", display: "flex", flexDirection: "column", position: "fixed", top: 0, bottom: 0, [isRtl?"right":"left"]: 0, zIndex: 100, overflowY: "auto", boxShadow: "8px 0 30px rgba(0,0,0,0.08)" }}>
     {/* Logo Section - Curved */}
     <div style={{ textAlign: "center", padding: "15px 16px 12px", background: "#4EA88E", borderRadius: "0 0 50% 0", marginBottom: 10 }}>
       <div style={{ width: 45, height: 45, borderRadius: "50%", background: "rgba(255,255,255,0.95)", margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
@@ -1334,6 +1335,11 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
           75%, 100% { transform: scale(1.6); opacity: 0; }
         }
         @media (max-width: 768px) {
+          aside { width: 260px !important; min-width: 260px !important; transform: translateX(100%); transition: transform 0.3s; }
+          aside.open { transform: translateX(0) !important; }
+          main { margin-left: 0 !important; width: 100vw !important; }
+          .menu-toggle { display: flex !important; }
+        }
           aside { width: 280px !important; min-width: 280px !important; }
           main { margin-left: 280px !important; width: calc(100vw - 280px) !important; }
         }
