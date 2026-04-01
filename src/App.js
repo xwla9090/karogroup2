@@ -724,7 +724,23 @@ export default function App() {
   };
 
   if (page === "login") return <LoginPage {...shared} onLogin={handleLogin} onBack={() => setPage("landing")} />;
-  if (page === "dashboard" && loggedUser) return <><AutoSync project={loggedUser.project} cashIQD={cashIQD} cashUSD={cashUSD} exchangeRate={exchangeRate} users={users} /><RealtimeSync project={loggedUser.project} onUpdate={()=>window.location.reload()} /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
+  if (page === "dashboard" && loggedUser) return <><AutoSync project={loggedUser.project} cashIQD={cashIQD} cashUSD={cashUSD} exchangeRate={exchangeRate} users={users} /><RealtimeSync project={loggedUser.project}
+    onExpUpdate={data => {
+      const mapped = data.map(e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
+      localStorage.setItem("karo_exp_" + loggedUser.project, JSON.stringify(mapped));
+    }}
+    onConcUpdate={data => {
+      const mapped = data.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
+      localStorage.setItem("karo_conc_" + loggedUser.project, JSON.stringify(mapped));
+    }}
+    onCashUpdate={cash => {
+      setCashIQD(cash.cashiqd || 0);
+      setCashUSD(cash.cashusd || 0);
+      setExchangeRate(cash.exchangerate || 1500);
+      localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(cash.cashiqd || 0));
+      localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(cash.cashusd || 0));
+    }}
+  /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
   return <LandingPage {...shared} setLang={setLang} setDark={setDark} onLogoClick={handleLogoClick} />;
 }
 
@@ -1783,6 +1799,16 @@ function InboxModal({ t, s, isRtl, messages, onClose, onMarkAsRead }) {
 function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
   const KEY = `karo_exp_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ amountIQD: "", amountUSD: "", receiptNo: "", note: "", date: today(), receiptImg: "" });
@@ -1841,6 +1867,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       if (iqd > 0 && cashIQD < iqd) { setAlert(t.noBalance); return; }
       if (usd > 0 && cashUSD < usd) { setAlert(t.noBalance); return; }
       setItems(prev => [{ ...form, id: genId(), marked: false }, ...prev]);
+      window.dispatchEvent(new Event("karoLocalChange"));
       if (iqd > 0) setCashIQD(prev => prev - iqd);
       if (usd > 0) setCashUSD(prev => prev - usd);
       addCashLog(`${t.sidebar.expenses}: ${form.note||form.receiptNo}`, -iqd, -usd);
@@ -2741,8 +2768,12 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
   const KEY = `karo_conc_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [showForm, setShowForm] = useState(false);
-  const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ date: today(), meters: "", pricePerMeter: "", depositPercent: "", note: "", currency: "usd" });
   const [alert, setAlert] = useState(null);
   const [sizeModal, setSizeModal] = useState(null);
@@ -2791,6 +2822,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const cur = form.currency || "iqd";
     const item = { ...form, id: genId(), totalPrice, deposit: depositAmt, received: receivedAmt, depositClaimed: false, isReceived: false, marked: false, currency: cur };
     setItems(prev => [item, ...prev]);
+    window.dispatchEvent(new Event("karoLocalChange"));
     resetForm();
     setShowForm(false);
   };

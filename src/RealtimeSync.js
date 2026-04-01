@@ -1,43 +1,43 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
-function setLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
-function getLS(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v || d; } catch { return d; } }
+export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCashUpdate }) {
+  const isLocal = useRef(false);
 
-export default function RealtimeSync({ project, onUpdate }) {
   useEffect(() => {
     if (!project) return;
 
     const expSub = supabase
       .channel("exp_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: "project=eq." + project },
-        (payload) => {
-          if (onUpdate) onUpdate("expenses", payload);
+        async () => {
+          if (isLocal.current) return;
+          const { data } = await supabase.from("expenses").select("*").eq("project", project);
+          if (data) onExpUpdate(data);
         }
       ).subscribe();
 
     const concSub = supabase
       .channel("conc_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "concrete", filter: "project=eq." + project },
-        (payload) => {
-          if (onUpdate) onUpdate("concrete", payload);
-        }
-      ).subscribe();
-
-    const cashSub = supabase
-      .channel("cash_" + project)
-      .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project },
-        (payload) => {
-          if (onUpdate) onUpdate("cash", payload);
+        async () => {
+          if (isLocal.current) return;
+          const { data } = await supabase.from("concrete").select("*").eq("project", project);
+          if (data) onConcUpdate(data);
         }
       ).subscribe();
 
     return () => {
       supabase.removeChannel(expSub);
       supabase.removeChannel(concSub);
-      supabase.removeChannel(cashSub);
     };
-  }, [project, onUpdate]);
+  }, [project]);
+
+  useEffect(() => {
+    const setLocal = () => { isLocal.current = true; setTimeout(() => { isLocal.current = false; }, 10000); };
+    window.addEventListener("karoLocalChange", setLocal);
+    return () => window.removeEventListener("karoLocalChange", setLocal);
+  }, []);
 
   return null;
 }
