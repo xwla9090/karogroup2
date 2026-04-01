@@ -1160,7 +1160,6 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
   </aside>
 
       <main style={{ 
-        flex: 1, 
         [isRtl?"marginRight":"marginLeft"]: 280,
         padding: "0px 20px 20px 20px",
         minHeight: "100vh", 
@@ -1341,9 +1340,9 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
           main { margin-left: 0 !important; width: 100vw !important; }
           .menu-toggle { display: flex !important; }
         }
-          aside { width: 280px !important; min-width: 280px !important; }
-          main { margin-left: 280px !important; width: calc(100vw - 280px) !important; }
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow-x: hidden; }
+        #root { width: 100%; height: 100%; }
       `}</style>
     </div>
   );
