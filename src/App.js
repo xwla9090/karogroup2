@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import AutoSync from "./AutoSync";
+import RealtimeSync from "./RealtimeSync";
 import { supabase } from "./supabase";
 
 // ==================== CONFIG ====================
@@ -723,7 +724,7 @@ export default function App() {
   };
 
   if (page === "login") return <LoginPage {...shared} onLogin={handleLogin} onBack={() => setPage("landing")} />;
-  if (page === "dashboard" && loggedUser) return <><AutoSync project={loggedUser.project} cashIQD={cashIQD} cashUSD={cashUSD} exchangeRate={exchangeRate} users={users} /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
+  if (page === "dashboard" && loggedUser) return <><AutoSync project={loggedUser.project} cashIQD={cashIQD} cashUSD={cashUSD} exchangeRate={exchangeRate} users={users} /><RealtimeSync project={loggedUser.project} onUpdate={()=>window.location.reload()} /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
   return <LandingPage {...shared} setLang={setLang} setDark={setDark} onLogoClick={handleLogoClick} />;
 }
 
