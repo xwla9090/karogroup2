@@ -1838,6 +1838,11 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
   }, [KEY]);
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ amountIQD: "", amountUSD: "", receiptNo: "", note: "", date: today(), receiptImg: "" });
@@ -2334,6 +2339,11 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   const PERSONS_KEY = `karo_loanPersons_${pKey}`;
   
   const [items, setItems] = useState(getLS(KEY, []));
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [personsList, setPersonsList] = useState(getLS(PERSONS_KEY, []));
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -2797,6 +2807,11 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
   const KEY = `karo_conc_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   useEffect(() => {
     const handler = () => setItems(getLS(KEY, []));
     window.addEventListener("karoDataUpdate", handler);
@@ -3389,6 +3404,11 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
   const KEY = `karo_contr_${pKey}`;
   const PKEY = `karo_contrPersons_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [personsList, setPersonsList] = useState(getLS(PKEY, []));
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
