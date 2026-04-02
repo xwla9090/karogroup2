@@ -1,29 +1,39 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { supabase } from "./supabase";
 
-export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCashUpdate }) {
-  const isLocal = useRef(false);
+function getLS(k) { try { var v = JSON.parse(localStorage.getItem(k)); return Array.isArray(v) ? v : []; } catch(e) { return []; } }
 
+export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCashUpdate }) {
   useEffect(() => {
     if (!project) return;
 
     const expSub = supabase
-      .channel("exp_" + project)
+      .channel("exp_rt_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: "project=eq." + project },
         async () => {
-          if (isLocal.current) return;
           const { data } = await supabase.from("expenses").select("*").eq("project", project);
-          if (data) onExpUpdate(data);
+          if (!data) return;
+          const mapped = data.map(e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
+          const local = getLS("karo_exp_" + project);
+          if (mapped.length !== local.length) {
+            localStorage.setItem("karo_exp_" + project, JSON.stringify(mapped));
+            window.dispatchEvent(new Event("karoDataUpdate"));
+          }
         }
       ).subscribe();
 
     const concSub = supabase
-      .channel("conc_" + project)
+      .channel("conc_rt_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "concrete", filter: "project=eq." + project },
         async () => {
-          if (isLocal.current) return;
           const { data } = await supabase.from("concrete").select("*").eq("project", project);
-          if (data) onConcUpdate(data);
+          if (!data) return;
+          const mapped = data.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
+          const local = getLS("karo_conc_" + project);
+          if (mapped.length !== local.length) {
+            localStorage.setItem("karo_conc_" + project, JSON.stringify(mapped));
+            window.dispatchEvent(new Event("karoDataUpdate"));
+          }
         }
       ).subscribe();
 
@@ -32,12 +42,6 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       supabase.removeChannel(concSub);
     };
   }, [project]);
-
-  useEffect(() => {
-    const setLocal = () => { isLocal.current = true; setTimeout(() => { isLocal.current = false; }, 10000); };
-    window.addEventListener("karoLocalChange", setLocal);
-    return () => window.removeEventListener("karoLocalChange", setLocal);
-  }, []);
 
   return null;
 }

@@ -673,7 +673,6 @@ export default function App() {
           if (concData) {
             const mapped = concData.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
             localStorage.setItem("karo_conc_" + pk, JSON.stringify(mapped));
-            window.dispatchEvent(new Event("karoDataUpdate"));
           }
           setCashLog(getLS(`karo_cashLog_${pk}`, []));
         } catch(e) {
@@ -1828,21 +1827,6 @@ function InboxModal({ t, s, isRtl, messages, onClose, onMarkAsRead }) {
 function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
   const KEY = `karo_exp_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
-  useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
-    window.addEventListener("karoDataUpdate", handler);
-    return () => window.removeEventListener("karoDataUpdate", handler);
-  }, [KEY]);
-  useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
-    window.addEventListener("karoDataUpdate", handler);
-    return () => window.removeEventListener("karoDataUpdate", handler);
-  }, [KEY]);
-  useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
-    window.addEventListener("karoDataUpdate", handler);
-    return () => window.removeEventListener("karoDataUpdate", handler);
-  }, [KEY]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ amountIQD: "", amountUSD: "", receiptNo: "", note: "", date: today(), receiptImg: "" });
@@ -2343,11 +2327,6 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   const PERSONS_KEY = `karo_loanPersons_${pKey}`;
   
   const [items, setItems] = useState(getLS(KEY, []));
-  useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
-    window.addEventListener("karoDataUpdate", handler);
-    return () => window.removeEventListener("karoDataUpdate", handler);
-  }, [KEY]);
   const [personsList, setPersonsList] = useState(getLS(PERSONS_KEY, []));
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -2815,16 +2794,6 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
   const KEY = `karo_conc_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
-  useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
-    window.addEventListener("karoDataUpdate", handler);
-    return () => window.removeEventListener("karoDataUpdate", handler);
-  }, [KEY]);
-  useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
-    window.addEventListener("karoDataUpdate", handler);
-    return () => window.removeEventListener("karoDataUpdate", handler);
-  }, [KEY]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ date: today(), meters: "", pricePerMeter: "", depositPercent: "", note: "", currency: "usd" });
   const [alert, setAlert] = useState(null);
@@ -3429,11 +3398,6 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
   const KEY = `karo_contr_${pKey}`;
   const PKEY = `karo_contrPersons_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
-  useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
-    window.addEventListener("karoDataUpdate", handler);
-    return () => window.removeEventListener("karoDataUpdate", handler);
-  }, [KEY]);
   const [personsList, setPersonsList] = useState(getLS(PKEY, []));
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);

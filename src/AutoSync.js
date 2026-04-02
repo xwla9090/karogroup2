@@ -6,23 +6,14 @@ function S(v) { return v ? String(v) : ""; }
 function B(v) { return v ? true : false; }
 export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, users }) {
   const lastHash = useRef("");
-  const pauseFetch = useRef(false);
-
   useEffect(() => {
     if (!project) return;
-
-    const handleLocalChange = () => {
-      pauseFetch.current = true;
-      setTimeout(() => { pauseFetch.current = false; }, 30000);
-    };
-    window.addEventListener("karoLocalChange", handleLocalChange);
-
     const doSync = async () => {
       try {
         var exp = getLS("karo_exp_" + project);
         var conc = getLS("karo_conc_" + project);
         var uLen = users ? users.length : 0;
-        var hash = exp.length + "" + conc.length + "" + cashIQD + "" + cashUSD + "" + uLen + "_" + Math.floor(Date.now()/3000);
+        var hash = exp.length + "_" + conc.length + "_" + cashIQD + "_" + cashUSD + "_" + uLen + "_" + Math.floor(Date.now()/5000);
         if (hash === lastHash.current) return;
         lastHash.current = hash;
         await supabase.from("expenses").delete().eq("project", project);
@@ -61,41 +52,9 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         }
       } catch(err) { console.error("Sync error:", err); }
     };
-
-    const fetchFromSupabase = async () => {
-      if (pauseFetch.current) return;
-      try {
-        const { data: expData } = await supabase.from("expenses").select("*").eq("project", project);
-        if (expData) {
-          const mapped = expData.map(e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
-          const local = getLS("karo_exp_" + project);
-          if (mapped.length !== local.length) {
-            localStorage.setItem("karo_exp_" + project, JSON.stringify(mapped));
-            window.dispatchEvent(new Event("karoDataUpdate"));
-          }
-        }
-        const { data: concData } = await supabase.from("concrete").select("*").eq("project", project);
-        if (concData) {
-          const mapped = concData.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
-          const local = getLS("karo_conc_" + project);
-          if (mapped.length !== local.length) {
-            localStorage.setItem("karo_conc_" + project, JSON.stringify(mapped));
-            window.dispatchEvent(new Event("karoDataUpdate"));
-          }
-        }
-      } catch(err) { console.error("Fetch error:", err); }
-    };
-
     doSync();
-    var syncInterval = setInterval(doSync, 3000);
-    var fetchInterval = setInterval(fetchFromSupabase, 3000);
-
-    return () => {
-      clearInterval(syncInterval);
-      clearInterval(fetchInterval);
-      window.removeEventListener("karoLocalChange", handleLocalChange);
-    };
+    var interval = setInterval(doSync, 5000);
+    return () => clearInterval(interval);
   }, [project, cashIQD, cashUSD, exchangeRate, users]);
-
   return null;
 }
