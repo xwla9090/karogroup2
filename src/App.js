@@ -1896,6 +1896,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
         addCashLog(`${t.edit} ${t.sidebar.expenses}`, diffIQD, diffUSD);
       }
       setItems(prev => prev.map(i => i.id === editItem.id ? { ...i, ...form } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
       setEditModalOpen(false);
     } else {
       if (iqd > 0 && cashIQD < iqd) { setAlert(t.noBalance); return; }
@@ -1923,6 +1924,8 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       addCashLog(`${t.delete} ${t.sidebar.expenses}`, Number(item.amountIQD||0), Number(item.amountUSD||0)); 
     }
     setItems(prev => prev.filter(i => i.id !== id));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
     setConfirmDel(null);
   };
 
@@ -1937,6 +1940,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   };
   
   const toggleMark = id => setItems(prev => prev.map(i => i.id===id ? {...i, marked: !i.marked} : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
 
   const handleImgUpload = e => { 
     const f = e.target.files[0]; 
@@ -2484,6 +2488,8 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     }
 
     setItems(prev => prev.map(i => i.id === id ? { ...i, returned: true, amountIQD: 0, amountUSD: 0 } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
     setConfirmReturn(null);
   };
 
@@ -2520,6 +2526,8 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   };
   
   const toggleMark = id => setItems(prev => prev.map(i => i.id===id?{...i,marked:!i.marked}:i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
 
   const doExport = (type, size) => {
     const hdrs = [t.loanType, t.personName, t.amountIQD, t.amountUSD, t.returned, t.note, t.date];
@@ -2919,6 +2927,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       isReceived: false,
       depositClaimed: false
     } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
 
     setEditModalOpen(false);
     resetForm();
@@ -2936,6 +2945,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       else { setCashIQD(prev => prev + item.received); }
       addCashLog(`${t.received} ${t.sidebar.concrete}`, cur === "iqd" ? item.received : 0, cur === "usd" ? item.received : 0);
       setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
     }
   };
 
@@ -2950,6 +2961,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (cur2 === "usd") { setCashUSD(prev => prev - allPaid); }
     else { setCashIQD(prev => prev - allPaid); }
     setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: false, paidAmount: 0, payments: [] } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
   };
 
 
@@ -2969,6 +2982,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const newPaymentObj = { id: genId(), amount: amt, date: date || today(), note: note || "" };
     const newPaymentsList = [...(items.find(i => i.id === id)?.payments || []), newPaymentObj];
     setItems(prev => prev.map(i => i.id === id ? { ...i, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
     setPaymentModal(null);
     setPaymentAmount("");
   };
@@ -2986,6 +3001,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       else { setCashIQD(prev => prev + item.deposit); }
       addCashLog(`${t.claimDeposit}: ${item.deposit}`, cur === "iqd" ? item.deposit : 0, cur === "usd" ? item.deposit : 0);
       setItems(prev => prev.map(i => i.id === id ? { ...i, depositClaimed: true } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
     }
   };
 
@@ -3006,6 +3023,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const newPayments = (item.payments||[]).map(p => p.id === paymentId ? { ...p, amount: amt, date: date||today(), note: note||"" } : p);
     const newPaid = newPayments.reduce((a,b) => a + Number(b.amount||0), 0);
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, payments: newPayments, paidAmount: newPaid, isReceived: newPaid >= Number(i.received||0) } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
     setEditPaymentId(null);
     setPaymentAmount("");
     setPaymentDate(today());
@@ -3024,6 +3042,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const newPayments = (item.payments||[]).filter(p => p.id !== paymentId);
     const newPaid = newPayments.reduce((a,b) => a + Number(b.amount||0), 0);
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, payments: newPayments, paidAmount: newPaid, isReceived: false } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
   };
 
   const unclaimDeposit = id => {
@@ -3034,6 +3053,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (cur === "usd") { setCashUSD(prev => prev - Number(item.deposit||0)); }
     else { setCashIQD(prev => prev - Number(item.deposit||0)); }
     setItems(prev => prev.map(i => i.id === id ? { ...i, depositClaimed: false } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
   };
 
 
@@ -3056,10 +3077,14 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       addCashLog(`${t.delete} ${t.sidebar.concrete}`, cur === "iqd" ? -(Number(item.isReceived?item.received:0) + Number(item.depositClaimed?item.deposit:0)) : 0, cur === "usd" ? -(Number(item.isReceived?item.received:0) + Number(item.depositClaimed?item.deposit:0)) : 0);
     }
     setItems(prev => prev.filter(i => i.id !== id));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
     setConfirmDel(null);
   };
 
   const toggleMark = id => setItems(prev => prev.map(i => i.id===id?{...i,marked:!i.marked}:i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
   const resetForm = () => setForm({ date: today(), meters: "", pricePerMeter: "", depositPercent: "", note: "", currency: "iqd" });
 
   const doExport = (type, size) => {
@@ -3545,6 +3570,8 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
   };
   
   const toggleMark = id => setItems(prev => prev.map(i => i.id===id?{...i,marked:!i.marked}:i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
