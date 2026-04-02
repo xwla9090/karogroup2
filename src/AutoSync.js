@@ -13,7 +13,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
 
     const handleLocalChange = () => {
       pauseFetch.current = true;
-      setTimeout(() => { pauseFetch.current = false; }, 10000);
+      setTimeout(() => { pauseFetch.current = false; }, 30000);
     };
     window.addEventListener("karoLocalChange", handleLocalChange);
 
