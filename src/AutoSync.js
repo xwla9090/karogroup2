@@ -11,7 +11,6 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
   useEffect(() => {
     if (!project) return;
 
-    // کاتێک داتا زیاد دەکرێت، fetch بوەستێت
     const handleLocalChange = () => {
       pauseFetch.current = true;
       setTimeout(() => { pauseFetch.current = false; }, 10000);
@@ -70,7 +69,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         if (expData) {
           const mapped = expData.map(e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
           const local = getLS("karo_exp_" + project);
-          if (JSON.stringify(mapped.map(x=>x.id).sort()) !== JSON.stringify(local.map(x=>x.id).sort())) {
+          if (mapped.length !== local.length) {
             localStorage.setItem("karo_exp_" + project, JSON.stringify(mapped));
             window.dispatchEvent(new Event("karoDataUpdate"));
           }
@@ -79,7 +78,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         if (concData) {
           const mapped = concData.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
           const local = getLS("karo_conc_" + project);
-          if (JSON.stringify(mapped.map(x=>x.id).sort()) !== JSON.stringify(local.map(x=>x.id).sort())) {
+          if (mapped.length !== local.length) {
             localStorage.setItem("karo_conc_" + project, JSON.stringify(mapped));
             window.dispatchEvent(new Event("karoDataUpdate"));
           }
