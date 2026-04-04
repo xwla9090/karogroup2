@@ -72,6 +72,23 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
             }
           }
         }
+
+        // چێک بکە ئایا format کراوەتەوە
+        const { data: cashCheck } = await supabase.from("cash").select("formatted_at").eq("project", project).single();
+        if (cashCheck && cashCheck.formatted_at) {
+          const localFormatted = localStorage.getItem("karo_formatted_" + project);
+          if (localFormatted !== cashCheck.formatted_at) {
+            localStorage.setItem("karo_formatted_" + project, cashCheck.formatted_at);
+            localStorage.setItem("karo_exp_" + project, JSON.stringify([]));
+            localStorage.setItem("karo_conc_" + project, JSON.stringify([]));
+            localStorage.setItem("karo_loans_" + project, JSON.stringify([]));
+            localStorage.setItem("karo_contr_" + project, JSON.stringify([]));
+            localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(0));
+            localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(0));
+            window.dispatchEvent(new Event("karoDataUpdate"));
+          }
+        }
+
       } catch(err) { console.error("Sync error:", err); }
     };
     doSync();

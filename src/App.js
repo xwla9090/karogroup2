@@ -1063,6 +1063,7 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
       // ٣ چرکە بوەستێت تا AutoSync تەواو بێت
       await new Promise(resolve => setTimeout(resolve, 3000));
+      await supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: 0, cashusd: 0, exchangerate: 1500, formatted_at: new Date().toISOString() }]);
       // ئینجا Supabase رەش بکەرەوە
       // localStorage بەتاڵ بکەرەوە پێش هەموو شتێک
       localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
