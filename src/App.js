@@ -673,6 +673,17 @@ export default function App() {
           if (concData) {
             const mapped = concData.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
             localStorage.setItem("karo_conc_" + pk, JSON.stringify(mapped));
+            localStorage.setItem("karo_conc_" + pk, JSON.stringify(mapped));
+          }
+          const { data: loansData } = await supabase.from("loans").select("*").eq("project", pk);
+          if (loansData) {
+            const mapped = loansData.map(l => ({ id: l.id, date: l.date, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, returned: l.returned, marked: l.marked }));
+            localStorage.setItem("karo_loans_" + pk, JSON.stringify(mapped));
+          }
+          const { data: contrData } = await supabase.from("contractor").select("*").eq("project", pk);
+          if (contrData) {
+            const mapped = contrData.map(c => ({ id: c.id, date: c.date, type: c.type, personName: c.personname, amountIQD: c.amountiqd, amountUSD: c.amountusd, note: c.note, marked: c.marked }));
+            localStorage.setItem("karo_contr_" + pk, JSON.stringify(mapped));
           }
           setCashLog(getLS(`karo_cashLog_${pk}`, []));
         } catch(e) {
@@ -1038,6 +1049,10 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       keys.forEach(k => localStorage.removeItem(k));
       // Supabase یش رەش بکەرەوە
       supabase.from("expenses").delete().eq("project", pKey);
+      supabase.from("concrete").delete().eq("project", pKey);
+      supabase.from("loans").delete().eq("project", pKey);
+      supabase.from("contractor").delete().eq("project", pKey);
+      supabase.from("cash").delete().eq("project", pKey);
       supabase.from("concrete").delete().eq("project", pKey);
       supabase.from("cash").delete().eq("project", pKey);
       setCashIQD(0); 
