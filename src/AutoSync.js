@@ -16,8 +16,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         var hash = exp.length + "_" + conc.length + "_" + cashIQD + "_" + cashUSD + "_" + uLen + "_" + Math.floor(Date.now()/5000);
         if (hash === lastHash.current) return;
         lastHash.current = hash;
-        await supabase.from("expenses").delete().eq("project", project);
-        if (exp.length > 0) {
+                if (exp.length > 0) {
           var rows = [];
           for (var j = 0; j < exp.length; j++) {
             var e = exp[j];
@@ -25,8 +24,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
           }
           await supabase.from("expenses").upsert(rows);
         }
-        await supabase.from("concrete").delete().eq("project", project);
-        if (conc.length > 0) {
+                if (conc.length > 0) {
           var rows2 = [];
           for (var k = 0; k < conc.length; k++) {
             var c = conc[k];
