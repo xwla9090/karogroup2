@@ -660,9 +660,17 @@ export default function App() {
             setCashUSD(cashData[0].cashusd || 0);
             setExchangeRate(cashData[0].exchangerate || 1500);
           } else {
-            setCashIQD(getLS(`karo_cashIQD_${pk}`, 0));
-            setCashUSD(getLS(`karo_cashUSD_${pk}`, 0));
-            setExchangeRate(getLS(`karo_rate_${pk}`, 1500));
+            // cash بەتاڵە — format کراوەتەوە — localStorage یش رەش بکەرەوە
+            setCashIQD(0);
+            setCashUSD(0);
+            setExchangeRate(1500);
+            localStorage.setItem("karo_exp_" + pk, JSON.stringify([]));
+            localStorage.setItem("karo_conc_" + pk, JSON.stringify([]));
+            localStorage.setItem("karo_loans_" + pk, JSON.stringify([]));
+            localStorage.setItem("karo_contr_" + pk, JSON.stringify([]));
+            localStorage.setItem("karo_cashIQD_" + pk, JSON.stringify(0));
+            localStorage.setItem("karo_cashUSD_" + pk, JSON.stringify(0));
+            window.dispatchEvent(new Event("karoDataUpdate"));
           }
           const { data: expData } = await supabase.from("expenses").select("*").eq("project", pk);
           if (expData) {
