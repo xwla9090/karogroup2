@@ -1054,6 +1054,24 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
         if (k?.startsWith("karo_") && k.includes(pKey)) keys.push(k); 
       }
       keys.forEach(k => localStorage.removeItem(k));
+      // سەرەتا localStorage بەتاڵ بکەرەوە
+      localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_conc_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_loans_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_contr_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
+      localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
+      // ٣ چرکە بوەستێت تا AutoSync تەواو بێت
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      // ئینجا Supabase رەش بکەرەوە
+      // localStorage بەتاڵ بکەرەوە پێش هەموو شتێک
+      localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_conc_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_loans_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_contr_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
+      localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
+      // ئینجا Supabase رەش بکەرەوە
       // Supabase یش رەش بکەرەوە
       await supabase.from("expenses").delete().eq("project", pKey);
       await supabase.from("concrete").delete().eq("project", pKey);
@@ -1074,8 +1092,7 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       setFmtUser("");
       setFmtPass("");
       alert(t.formatSuccess);
-      setFmtUser(""); 
-      setFmtPass("");
+      setTimeout(() => { window.location.href = "/"; }, 500);
       alert(t.formatSuccess);
     }
   };
