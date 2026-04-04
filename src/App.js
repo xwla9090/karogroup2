@@ -673,7 +673,6 @@ export default function App() {
           if (concData) {
             const mapped = concData.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
             localStorage.setItem("karo_conc_" + pk, JSON.stringify(mapped));
-            localStorage.setItem("karo_conc_" + pk, JSON.stringify(mapped));
           }
           const { data: loansData } = await supabase.from("loans").select("*").eq("project", pk);
           if (loansData) {
@@ -1038,7 +1037,7 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
     );
   }
 
-  const doFormat = () => {
+  const doFormat = async () => {
     if (fmtUser === "admin" && fmtPass === "karo2024") {
       // تەنها داتای پرۆژەی ئێستا بسڕەوە
       const keys = []; 
@@ -1048,18 +1047,25 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       }
       keys.forEach(k => localStorage.removeItem(k));
       // Supabase یش رەش بکەرەوە
-      supabase.from("expenses").delete().eq("project", pKey);
-      supabase.from("concrete").delete().eq("project", pKey);
-      supabase.from("loans").delete().eq("project", pKey);
-      supabase.from("contractor").delete().eq("project", pKey);
-      supabase.from("cash").delete().eq("project", pKey);
-      supabase.from("concrete").delete().eq("project", pKey);
-      supabase.from("cash").delete().eq("project", pKey);
-      setCashIQD(0); 
-      setCashUSD(0); 
-      setCashLog([]); 
+      await supabase.from("expenses").delete().eq("project", pKey);
+      await supabase.from("concrete").delete().eq("project", pKey);
+      await supabase.from("loans").delete().eq("project", pKey);
+      await supabase.from("contractor").delete().eq("project", pKey);
+      await supabase.from("cash").delete().eq("project", pKey);
+      localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_conc_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_loans_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_contr_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
+      localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
+      setCashIQD(0);
+      setCashUSD(0);
+      setCashLog([]);
       setExchangeRate(1500);
-      setFormatModal(false); 
+      setFormatModal(false);
+      setFmtUser("");
+      setFmtPass("");
+      alert(t.formatSuccess);
       setFmtUser(""); 
       setFmtPass("");
       alert(t.formatSuccess);
