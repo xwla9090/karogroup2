@@ -1036,6 +1036,10 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
         if (k?.startsWith("karo_") && k.includes(pKey)) keys.push(k); 
       }
       keys.forEach(k => localStorage.removeItem(k));
+      // Supabase یش رەش بکەرەوە
+      supabase.from("expenses").delete().eq("project", pKey);
+      supabase.from("concrete").delete().eq("project", pKey);
+      supabase.from("cash").delete().eq("project", pKey);
       setCashIQD(0); 
       setCashUSD(0); 
       setCashLog([]); 

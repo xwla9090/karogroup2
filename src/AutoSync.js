@@ -12,11 +12,14 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
       try {
         var exp = getLS("karo_exp_" + project);
         var conc = getLS("karo_conc_" + project);
+        var loans = getLS("karo_loans_" + project);
+        var contr = getLS("karo_contr_" + project);
         var uLen = users ? users.length : 0;
-        var hash = exp.length + "_" + conc.length + "_" + cashIQD + "_" + cashUSD + "_" + uLen + "_" + Math.floor(Date.now()/5000);
+        var hash = exp.length + "" + conc.length + "" + loans.length + "" + contr.length + "" + cashIQD + "" + cashUSD + "" + uLen + "_" + Math.floor(Date.now()/5000);
         if (hash === lastHash.current) return;
         lastHash.current = hash;
-                if (exp.length > 0) {
+
+        if (exp.length > 0) {
           var rows = [];
           for (var j = 0; j < exp.length; j++) {
             var e = exp[j];
@@ -24,15 +27,36 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
           }
           await supabase.from("expenses").upsert(rows);
         }
-                if (conc.length > 0) {
+
+        if (conc.length > 0) {
           var rows2 = [];
           for (var k = 0; k < conc.length; k++) {
             var c = conc[k];
-            rows2.push({ id: c.id, project: project, date: c.date, currency: S(c.currency) ? S(c.currency) : "iqd", meters: N(c.meters), pricepermeter: N(c.pricePerMeter), totalprice: N(c.totalPrice), deposit: N(c.deposit), depositpercent: N(c.depositPercent), received: N(c.received), isreceived: B(c.isReceived), depositclaimed: B(c.depositClaimed), note: c.note, marked: B(c.marked), paidamount: N(c.paidAmount), payments: JSON.stringify(c.payments||[]) });
+            rows2.push({ id: c.id, project: project, date: c.date, currency: S(c.currency) ? S(c.currency) : "iqd", meters: N(c.meters), pricepermeter: N(c.pricePerMeter), totalprice: N(c.totalPrice), deposit: N(c.deposit), depositpercent: N(c.depositPercent), received: N(c.received), isreceived: B(c.isReceived), depositclaimed: B(c.depositClaimed), note: S(c.note), marked: B(c.marked), paidamount: N(c.paidAmount), payments: JSON.stringify(c.payments||[]) });
           }
           await supabase.from("concrete").upsert(rows2);
         }
+
+        if (loans.length > 0) {
+          var rows3 = [];
+          for (var l = 0; l < loans.length; l++) {
+            var ln = loans[l];
+            rows3.push({ id: ln.id, project: project, date: S(ln.date), type: S(ln.type), personname: S(ln.personName), amountiqd: N(ln.amountIQD), amountusd: N(ln.amountUSD), note: S(ln.note), returned: B(ln.returned), marked: B(ln.marked) });
+          }
+          await supabase.from("loans").upsert(rows3);
+        }
+
+        if (contr.length > 0) {
+          var rows4 = [];
+          for (var ct = 0; ct < contr.length; ct++) {
+            var cn = contr[ct];
+            rows4.push({ id: cn.id, project: project, date: S(cn.date), type: S(cn.type), personname: S(cn.personName), amountiqd: N(cn.amountIQD), amountusd: N(cn.amountUSD), note: S(cn.note), marked: B(cn.marked) });
+          }
+          await supabase.from("contractor").upsert(rows4);
+        }
+
         await supabase.from("cash").upsert([{ id: project, project: project, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate }]);
+
         if (users && users.length > 0) {
           for (var m = 0; m < users.length; m++) {
             var u = users[m];
