@@ -14,6 +14,8 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         var conc = getLS("karo_conc_" + project);
         var loans = getLS("karo_loans_" + project);
         var contr = getLS("karo_contr_" + project);
+        var cashLogData = [];
+        try { cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + project) || "[]"); } catch(e) {}
         var uLen = users ? users.length : 0;
         var hash = exp.length + "" + conc.length + "" + loans.length + "" + contr.length + "" + cashIQD + "" + cashUSD + "" + uLen + "_" + Math.floor(Date.now()/5000);
         if (hash === lastHash.current) return;
@@ -55,7 +57,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
           await supabase.from("contractor").upsert(rows4);
         }
 
-        await supabase.from("cash").upsert([{ id: project, project: project, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate }]);
+        await supabase.from("cash").upsert([{ id: project, project: project, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + project) || "" }]);
 
         if (users && users.length > 0) {
           for (var m = 0; m < users.length; m++) {
@@ -74,7 +76,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         }
 
         // چێک بکە ئایا format کراوەتەوە
-        const { data: cashCheck } = await supabase.from("cash").select("formatted_at").eq("project", project).single();
+        const { data: cashCheck } = await supabase.from("cash").select("formatted_at, cashlog, exchangerate").eq("project", project).single();
         if (cashCheck && cashCheck.formatted_at) {
           const localFormatted = localStorage.getItem("karo_formatted_" + project);
           if (localFormatted !== cashCheck.formatted_at) {
@@ -85,6 +87,17 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
             localStorage.setItem("karo_contr_" + project, JSON.stringify([]));
             localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(0));
             localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(0));
+            localStorage.setItem("karo_cashLog_" + project, JSON.stringify([]));
+            window.dispatchEvent(new Event("karoDataUpdate"));
+          }
+        }
+
+        // cashLog sync
+        if (cashCheck && cashCheck.cashlog) {
+          const remoteCashLog = JSON.parse(cashCheck.cashlog || "[]");
+          const localCashLog = JSON.parse(localStorage.getItem("karo_cashLog_" + project) || "[]");
+          if (remoteCashLog.length !== localCashLog.length) {
+            localStorage.setItem("karo_cashLog_" + project, cashCheck.cashlog);
             window.dispatchEvent(new Event("karoDataUpdate"));
           }
         }
