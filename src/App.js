@@ -1088,6 +1088,8 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       await supabase.from("concrete").delete().eq("project", pKey);
       await supabase.from("loans").delete().eq("project", pKey);
       await supabase.from("contractor").delete().eq("project", pKey);
+      await supabase.from("invoices").delete().eq("project", pKey);
+      localStorage.setItem("karo_inv_" + pKey, JSON.stringify([]));
       await supabase.from("cash").delete().eq("project", pKey);
       localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
       localStorage.setItem("karo_conc_" + pKey, JSON.stringify([]));
