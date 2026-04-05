@@ -697,6 +697,11 @@ export default function App() {
             const mapped = contrData.map(c => ({ id: c.id, date: c.date, type: c.type, personName: c.personname, amountIQD: c.amountiqd, amountUSD: c.amountusd, note: c.note, marked: c.marked }));
             localStorage.setItem("karo_contr_" + pk, JSON.stringify(mapped));
           }
+          const { data: invData } = await supabase.from("invoices").select("*").eq("project", pk);
+          if (invData) {
+            const mapped = invData.map(i => ({ id: i.id, date: i.date, invoiceNo: i.invoiceno, currency: i.currency, billTo: i.billto, billPhone: i.billphone, items: JSON.parse(i.items||"[]"), total: i.total, marked: i.marked }));
+            localStorage.setItem("karo_inv_" + pk, JSON.stringify(mapped));
+          }
           setCashLog(getLS(`karo_cashLog_${pk}`, []));
         } catch(e) {
           setCashIQD(getLS(`karo_cashIQD_${pk}`, 0));
@@ -3884,6 +3889,11 @@ function ExchangePage({ t, s, isRtl, exchangeRate, setExchangeRate, cashIQD, set
 function InvoicePage({ t, s, isRtl, pKey, isFrozen }) {
   const KEY = `karo_inv_${pKey}`;
   const [invoices, setInvoices] = useState(getLS(KEY, []));
+  useEffect(() => {
+    const handler = () => setInvoices(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ date: today(), invoiceNo: "", currency: "iqd", billTo: "", billPhone: "", items: [{ name: "", qty: "", price: "", note: "" }] });
   const [preview, setPreview] = useState(null);
