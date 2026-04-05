@@ -1097,6 +1097,8 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       localStorage.setItem("karo_contr_" + pKey, JSON.stringify([]));
       localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
       localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
+      localStorage.setItem("karo_cashLog_" + pKey, JSON.stringify([]));
+      window.dispatchEvent(new Event("karoDataUpdate"));
       setCashIQD(0);
       setCashUSD(0);
       setCashLog([]);
