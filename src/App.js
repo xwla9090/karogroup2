@@ -3899,6 +3899,11 @@ function InvoicePage({ t, s, isRtl, pKey, isFrozen }) {
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
   }, [KEY]);
+  useEffect(() => {
+    const handler = () => setInvoices(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ date: today(), invoiceNo: "", currency: "iqd", billTo: "", billPhone: "", items: [{ name: "", qty: "", price: "", note: "" }] });
   const [preview, setPreview] = useState(null);
