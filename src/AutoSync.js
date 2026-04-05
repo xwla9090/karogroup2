@@ -14,10 +14,11 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         var conc = getLS("karo_conc_" + project);
         var loans = getLS("karo_loans_" + project);
         var contr = getLS("karo_contr_" + project);
+        var inv = getLS("karo_inv_" + project);
         var cashLogData = [];
         try { cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + project) || "[]"); } catch(e) {}
         var uLen = users ? users.length : 0;
-        var hash = exp.length + "" + conc.length + "" + loans.length + "" + contr.length + "" + cashIQD + "" + cashUSD + "" + uLen + "_" + Math.floor(Date.now()/5000);
+        var hash = exp.length + "" + conc.length + "" + loans.length + "" + contr.length + "" + inv.length + "" + cashIQD + "" + cashUSD + "" + uLen + "_" + Math.floor(Date.now()/5000);
         if (hash === lastHash.current) return;
         lastHash.current = hash;
 
@@ -57,6 +58,15 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
           await supabase.from("contractor").upsert(rows4);
         }
 
+        if (inv.length > 0) {
+          var rows5 = [];
+          for (var iv = 0; iv < inv.length; iv++) {
+            var invoice = inv[iv];
+            rows5.push({ id: invoice.id, project: project, date: S(invoice.date), invoiceno: S(invoice.invoiceNo), currency: S(invoice.currency), billto: S(invoice.billTo), billphone: S(invoice.billPhone), items: JSON.stringify(invoice.items||[]), total: N(invoice.total), marked: B(invoice.marked) });
+          }
+          await supabase.from("invoices").upsert(rows5);
+        }
+
         await supabase.from("cash").upsert([{ id: project, project: project, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + project) || "" }]);
 
         if (users && users.length > 0) {
@@ -85,6 +95,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
             localStorage.setItem("karo_conc_" + project, JSON.stringify([]));
             localStorage.setItem("karo_loans_" + project, JSON.stringify([]));
             localStorage.setItem("karo_contr_" + project, JSON.stringify([]));
+            localStorage.setItem("karo_inv_" + project, JSON.stringify([]));
             localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(0));
             localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(0));
             localStorage.setItem("karo_cashLog_" + project, JSON.stringify([]));
