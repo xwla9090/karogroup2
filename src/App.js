@@ -2397,6 +2397,11 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   const PERSONS_KEY = `karo_loanPersons_${pKey}`;
   
   const [items, setItems] = useState(getLS(KEY, []));
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [personsList, setPersonsList] = useState(getLS(PERSONS_KEY, []));
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -3469,6 +3474,11 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
   const KEY = `karo_contr_${pKey}`;
   const PKEY = `karo_contrPersons_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [personsList, setPersonsList] = useState(getLS(PKEY, []));
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
