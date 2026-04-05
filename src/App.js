@@ -659,6 +659,11 @@ export default function App() {
             setCashIQD(cashData[0].cashiqd || 0);
             setCashUSD(cashData[0].cashusd || 0);
             setExchangeRate(cashData[0].exchangerate || 1500);
+            if (cashData[0].cashlog) {
+              const remotelog = JSON.parse(cashData[0].cashlog || "[]");
+              setCashLog(remotelog);
+              localStorage.setItem("karo_cashLog_" + pk, JSON.stringify(remotelog));
+            }
           } else {
             // cash بەتاڵە — format کراوەتەوە — localStorage یش رەش بکەرەوە
             setCashIQD(0);
