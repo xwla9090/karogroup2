@@ -2261,7 +2261,12 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
 function CashPage({ t, s, isRtl, pKey, exchangeRate, user, addCashLog, cashIQD, setCashIQD, cashUSD, setCashUSD }) {
   // cashIQD and cashUSD come from props
   // cashUSD comes from props
-  const cashLog = getLS("karo_cashLog_" + pKey, []);
+  const [cashLog, setCashLogLocal] = useState(getLS("karo_cashLog_" + pKey, []));
+  useEffect(() => {
+    const handler = () => setCashLogLocal(getLS("karo_cashLog_" + pKey, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [pKey]);
   const [editIQD, setEditIQD] = useState(false); 
   const [editUSD, setEditUSD] = useState(false);
   const [tmpIQD, setTmpIQD] = useState(cashIQD); 
@@ -4370,7 +4375,12 @@ function BackupPage({ t, s, pKey, isFrozen }) {
 
 // ==================== HISTORY ====================
 function HistoryPage({ t, s, isRtl, pKey }) {
-  const myLog = getLS("karo_cashLog_" + pKey, []);
+  const [myLog, setMyLog] = useState(getLS("karo_cashLog_" + pKey, []));
+  useEffect(() => {
+    const handler = () => setMyLog(getLS("karo_cashLog_" + pKey, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [pKey]);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate()-30);
   const cs = cutoff.toISOString().split("T")[0];
