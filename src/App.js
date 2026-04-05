@@ -2418,7 +2418,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   const [search, setSearch] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
 
-  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
+  useEffect(() => { setLS(KEY, items); if(items.length>0){const rows=items.map(l=>({id:l.id,project:pKey,date:String(l.date||""),type:String(l.type||""),personname:String(l.personName||""),amountiqd:Number(l.amountIQD||0),amountusd:Number(l.amountUSD||0),note:String(l.note||""),returned:!!l.returned,marked:!!l.marked}));supabase.from("loans").delete().eq("project",pKey).then(()=>supabase.from("loans").upsert(rows));} else {supabase.from("loans").delete().eq("project",pKey);} }, [items, KEY, pKey]);
   useEffect(() => { setLS(PERSONS_KEY, personsList); }, [personsList, PERSONS_KEY]);
 
   useEffect(() => {
