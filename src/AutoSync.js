@@ -6,8 +6,10 @@ function S(v) { return v ? String(v) : ""; }
 function B(v) { return v ? true : false; }
 export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, users }) {
   const lastHash = useRef("");
+  const lastFetch = useRef(0);
   useEffect(() => {
     if (!project) return;
+
     const doSync = async () => {
       try {
         var exp = getLS("karo_exp_" + project);
@@ -85,6 +87,57 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
           }
         }
 
+        // fetch لە Supabase بۆ sync گۆڕانکاری و سڕینەوە
+        var now = Date.now();
+        if (now - lastFetch.current > 5000) {
+          lastFetch.current = now;
+          const { data: expFull } = await supabase.from("expenses").select("*").eq("project", project);
+          if (expFull) {
+            const mapped = expFull.map(e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
+            const local = getLS("karo_exp_" + project);
+            if (JSON.stringify(mapped.sort((a,b)=>a.id>b.id?1:-1)) !== JSON.stringify(local.sort((a,b)=>a.id>b.id?1:-1))) {
+              localStorage.setItem("karo_exp_" + project, JSON.stringify(mapped));
+              window.dispatchEvent(new Event("karoDataUpdate"));
+            }
+          }
+          const { data: concFull } = await supabase.from("concrete").select("*").eq("project", project);
+          if (concFull) {
+            const mapped = concFull.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
+            const local = getLS("karo_conc_" + project);
+            if (JSON.stringify(mapped.sort((a,b)=>a.id>b.id?1:-1)) !== JSON.stringify(local.sort((a,b)=>a.id>b.id?1:-1))) {
+              localStorage.setItem("karo_conc_" + project, JSON.stringify(mapped));
+              window.dispatchEvent(new Event("karoDataUpdate"));
+            }
+          }
+          const { data: loansFull } = await supabase.from("loans").select("*").eq("project", project);
+          if (loansFull) {
+            const mapped = loansFull.map(l => ({ id: l.id, date: l.date, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, returned: l.returned, marked: l.marked }));
+            const local = getLS("karo_loans_" + project);
+            if (JSON.stringify(mapped.sort((a,b)=>a.id>b.id?1:-1)) !== JSON.stringify(local.sort((a,b)=>a.id>b.id?1:-1))) {
+              localStorage.setItem("karo_loans_" + project, JSON.stringify(mapped));
+              window.dispatchEvent(new Event("karoDataUpdate"));
+            }
+          }
+          const { data: contrFull } = await supabase.from("contractor").select("*").eq("project", project);
+          if (contrFull) {
+            const mapped = contrFull.map(c => ({ id: c.id, date: c.date, type: c.type, personName: c.personname, amountIQD: c.amountiqd, amountUSD: c.amountusd, note: c.note, marked: c.marked }));
+            const local = getLS("karo_contr_" + project);
+            if (JSON.stringify(mapped.sort((a,b)=>a.id>b.id?1:-1)) !== JSON.stringify(local.sort((a,b)=>a.id>b.id?1:-1))) {
+              localStorage.setItem("karo_contr_" + project, JSON.stringify(mapped));
+              window.dispatchEvent(new Event("karoDataUpdate"));
+            }
+          }
+          const { data: invFull } = await supabase.from("invoices").select("*").eq("project", project);
+          if (invFull) {
+            const mapped = invFull.map(i => ({ id: i.id, date: i.date, invoiceNo: i.invoiceno, currency: i.currency, billTo: i.billto, billPhone: i.billphone, items: JSON.parse(i.items||"[]"), total: i.total, marked: i.marked }));
+            const local = getLS("karo_inv_" + project);
+            if (JSON.stringify(mapped.sort((a,b)=>a.id>b.id?1:-1)) !== JSON.stringify(local.sort((a,b)=>a.id>b.id?1:-1))) {
+              localStorage.setItem("karo_inv_" + project, JSON.stringify(mapped));
+              window.dispatchEvent(new Event("karoDataUpdate"));
+            }
+          }
+        }
+
         // چێک بکە ئایا format کراوەتەوە
         const { data: cashCheck } = await supabase.from("cash").select("formatted_at, cashlog, exchangerate").eq("project", project).single();
         if (cashCheck && cashCheck.formatted_at) {
@@ -103,7 +156,6 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
           }
         }
 
-        // cashLog sync
         if (cashCheck && cashCheck.cashlog) {
           const remoteCashLog = JSON.parse(cashCheck.cashlog || "[]");
           const localCashLog = JSON.parse(localStorage.getItem("karo_cashLog_" + project) || "[]");
