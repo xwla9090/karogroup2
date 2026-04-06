@@ -1,20 +1,18 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { supabase } from "./supabase";
 
 export default function RealtimeSync({ project }) {
-  const pauseRef = useRef(false);
-
   useEffect(() => {
     if (!project) return;
 
     const handleLocalChange = () => {
-      pauseRef.current = true;
-      setTimeout(() => { pauseRef.current = false; }, 8000);
+      window._karoPause = true;
+      setTimeout(() => { window._karoPause = false; }, 8000);
     };
     window.addEventListener("karoLocalChange", handleLocalChange);
 
     const fetchAndUpdate = async (table, localKey, mapper) => {
-      if (pauseRef.current) return;
+      if (window._karoPause) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
         const local = JSON.parse(localStorage.getItem(localKey + project) || "[]");
