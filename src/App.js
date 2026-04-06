@@ -1905,7 +1905,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   const [editModalOpen, setEditModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => { setLS(KEY, items); supabase.from("expenses").delete().eq("project",pKey).then(()=>{ if(items.length>=0){ const rows=items.map(e=>({id:e.id,project:pKey,date:e.date,amountiqd:Number(e.amountIQD||0),amountusd:Number(e.amountUSD||0),receiptno:String(e.receiptNo||""),note:String(e.note||""),marked:!!e.marked})); if(rows.length>0) supabase.from("expenses").upsert(rows); } }); }, [items, KEY, pKey]);
+  useEffect(() => { setLS(KEY, items); if(items.length>=0){ const rows=items.map(e=>({id:e.id,project:pKey,date:e.date,amountiqd:Number(e.amountIQD||0),amountusd:Number(e.amountUSD||0),receiptno:String(e.receiptNo||""),note:String(e.note||""),marked:!!e.marked})); supabase.from("expenses").upsert(rows); } }, [items, KEY, pKey]);
 
   const months = [...new Set(items.map(i => i.date?.slice(0,7)))].sort().reverse();
   
