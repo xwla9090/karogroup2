@@ -698,7 +698,7 @@ export default function App() {
           }
         } catch(e) {}
       };
-      smartFetch();
+      // smartFetch();
     }
   }, [loggedUser?.project]);
 
