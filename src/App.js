@@ -1961,9 +1961,8 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       addCashLog(`${t.delete} ${t.sidebar.expenses}`, Number(item.amountIQD||0), Number(item.amountUSD||0)); 
     }
     setItems(prev => prev.filter(i => i.id !== id));
-    supabase.from("expenses").delete().eq("id", id);
     window.dispatchEvent(new Event("karoLocalChange"));
-    window.dispatchEvent(new Event("karoLocalChange"));
+    setTimeout(() => supabase.from("expenses").delete().eq("id", id), 100);
     setConfirmDel(null);
   };
 
