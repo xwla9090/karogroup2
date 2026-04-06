@@ -710,7 +710,7 @@ export default function App() {
           setCashLog(getLS(`karo_cashLog_${pk}`, []));
         }
       };
-      fetchFromSupabase();
+      // fetchFromSupabase();
     }
   }, [loggedUser?.project]);
 
