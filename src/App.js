@@ -715,7 +715,7 @@ export default function App() {
           const { data: expData } = await supabase.from("expenses").select("*").eq("project", pk);
           if (expData) {
             const local = JSON.parse(localStorage.getItem("karo_exp_" + pk) || "[]");
-            if (expData.length !== local.length) {
+            if (expData.length > local.length) {
               const mapped = expData.map(e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
               localStorage.setItem("karo_exp_" + pk, JSON.stringify(mapped));
               window.dispatchEvent(new Event("karoDataUpdate"));
