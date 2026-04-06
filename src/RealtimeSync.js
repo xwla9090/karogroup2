@@ -1,11 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
 export default function RealtimeSync({ project }) {
+  const pauseRef = useRef(false);
+
   useEffect(() => {
     if (!project) return;
 
+    const handleLocalChange = () => {
+      pauseRef.current = true;
+      setTimeout(() => { pauseRef.current = false; }, 8000);
+    };
+    window.addEventListener("karoLocalChange", handleLocalChange);
+
     const fetchAndUpdate = async (table, localKey, mapper) => {
+      if (pauseRef.current) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
         const local = JSON.parse(localStorage.getItem(localKey + project) || "[]");
@@ -51,6 +60,7 @@ export default function RealtimeSync({ project }) {
     return () => {
       supabase.removeChannel(expSub);
       supabase.removeChannel(cashSub);
+      window.removeEventListener("karoLocalChange", handleLocalChange);
     };
   }, [project]);
 
