@@ -7,7 +7,7 @@ export default function RealtimeSync({ project }) {
 
     const handleLocalChange = () => {
       window._karoPause = true;
-      setTimeout(() => { window._karoPause = false; }, 8000);
+      setTimeout(() => { window._karoPause = false; }, 3000);
     };
     window.addEventListener("karoLocalChange", handleLocalChange);
 
