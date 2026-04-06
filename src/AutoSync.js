@@ -28,6 +28,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
             var e = exp[j];
             rows.push({ id: e.id, project: project, date: e.date, amountiqd: N(e.amountIQD), amountusd: N(e.amountUSD), receiptno: S(e.receiptNo), note: S(e.note), marked: B(e.marked) });
           }
+          await supabase.from("expenses").delete().eq("project", project);
           await supabase.from("expenses").upsert(rows);
         }
 
