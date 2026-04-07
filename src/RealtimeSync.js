@@ -8,7 +8,7 @@ export default function RealtimeSync({ project }) {
 
     const fetchAndUpdate = async (table, localKey, mapper) => {
       if (window._karoPause) return;
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 2000));
       if (window._karoPause) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
