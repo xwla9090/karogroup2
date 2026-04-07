@@ -5,3 +5,4 @@ lines[1949] = '      supabase.from("expenses").upsert([{ id: newItem.id, project
 
 with open('src/App.js', 'w', encoding='utf-8') as f:
     f.writelines(lines)
+print('done!')
