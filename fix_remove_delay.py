@@ -1,4 +1,4 @@
-> Hawa:
+
 with open('src/RealtimeSync.js', encoding='utf-8') as f:
     lines = f.readlines()
 
