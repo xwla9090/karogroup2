@@ -717,7 +717,8 @@ export default function App() {
   useEffect(() => { if(loggedUser) setLS("karo_rate_" + loggedUser.project, exchangeRate); }, [exchangeRate]);
 
   const addCashLog = useCallback((desc, iqd, usd) => {
-    setCashLog(prev => { const newBalIQD = cashIQD + (Number(iqd) ? Number(iqd) : 0); const newBalUSD = cashUSD + (Number(usd) ? Number(usd) : 0); const n=[...prev, { id: genId(), date: today(), desc, iqd: Number(iqd) ? Number(iqd) : 0, usd: Number(usd) ? Number(usd) : 0, balIQD: newBalIQD, balUSD: newBalUSD, time: new Date().toLocaleTimeString() }]; if(loggedUser) setLS("karo_cashLog_" + loggedUser.project, n); window.dispatchEvent(new Event("karoDataUpdate")); return n; });
+    setCashLog(prev => { const newBalIQD = cashIQD + (Number(iqd) ? Number(iqd) : 0); const newBalUSD = cashUSD + (Number(usd) ? Number(usd) : 0); const n=[...prev, { id: genId(), date: today(), desc, iqd: Number(iqd) ? Number(iqd) : 0, usd: Number(usd) ? Number(usd) : 0, balIQD: newBalIQD, balUSD: newBalUSD, time: new Date().toLocaleTimeString() }]; if(loggedUser) setLS("karo_cashLog_" + loggedUser.project, n); return n; });
+    setTimeout(() => window.dispatchEvent(new Event("karoDataUpdate")), 0);
   }, [loggedUser, cashIQD, cashUSD]);
 
   useEffect(() => {
@@ -1881,7 +1882,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   const KEY = `karo_exp_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
   useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
+    const handler = () => { setItems(getLS(KEY, [])); };
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
   }, [KEY]);
@@ -1917,7 +1918,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     setEditItem(null); 
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -1945,9 +1946,9 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       if (usd > 0 && cashUSD < usd) { setAlert(t.noBalance); return; }
       const newItem = { ...form, id: genId(), marked: false };
       setItems(prev => [newItem, ...prev]);
-      window._karoPause = true;
-      setTimeout(() => { window._karoPause = false; }, 10000);
-      supabase.from("expenses").upsert([{ id: newItem.id, project: pKey, date: newItem.date, amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0), receiptno: String(newItem.receiptNo||""), note: String(newItem.note||""), marked: false }]);
+      window._karoLocal = true;
+      setTimeout(() => { window._karoLocal = false; }, 10000);
+      await supabase.from("expenses").upsert([{ id: newItem.id, project: pKey, date: newItem.date, amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0), receiptno: String(newItem.receiptNo||""), note: String(newItem.note||""), marked: false }]);
       if (iqd > 0) setCashIQD(prev => prev - iqd);
       if (usd > 0) setCashUSD(prev => prev - usd);
       addCashLog(`${t.sidebar.expenses}: ${form.note||form.receiptNo}`, -iqd, -usd);
@@ -1956,7 +1957,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     resetForm(); 
   };
 
-  const doDelete = (id) => {
+  const doDelete = async (id) => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -1969,9 +1970,9 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       addCashLog(`${t.delete} ${t.sidebar.expenses}`, Number(item.amountIQD||0), Number(item.amountUSD||0)); 
     }
     setItems(prev => prev.filter(i => i.id !== id));
-    window._karoPause = true;
-    setTimeout(() => { window._karoPause = false; }, 10000);
-    supabase.from("expenses").delete().eq("id", id);
+    window._karoLocal = true;
+    setTimeout(() => { window._karoLocal = false; }, 10000);
+    await supabase.from("expenses").delete().eq("id", id);
     setConfirmDel(null);
   };
 
