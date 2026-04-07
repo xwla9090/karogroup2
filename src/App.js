@@ -3117,7 +3117,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   };
 
 
-  const doDelete = id => {
+  const doDelete = async id => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -3136,8 +3136,9 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       addCashLog(`${t.delete} ${t.sidebar.concrete}`, cur === "iqd" ? -(Number(item.isReceived?item.received:0) + Number(item.depositClaimed?item.deposit:0)) : 0, cur === "usd" ? -(Number(item.isReceived?item.received:0) + Number(item.depositClaimed?item.deposit:0)) : 0);
     }
     setItems(prev => prev.filter(i => i.id !== id));
-    window.dispatchEvent(new Event("karoLocalChange"));
-    window.dispatchEvent(new Event("karoLocalChange"));
+    window._karoLocal = true;
+    setTimeout(() => { window._karoLocal = false; }, 10000);
+    await supabase.from("concrete").delete().eq("id", id);
     setConfirmDel(null);
   };
 
