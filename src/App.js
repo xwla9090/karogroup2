@@ -1938,8 +1938,11 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     } else {
       if (iqd > 0 && cashIQD < iqd) { setAlert(t.noBalance); return; }
       if (usd > 0 && cashUSD < usd) { setAlert(t.noBalance); return; }
-      setItems(prev => [{ ...form, id: genId(), marked: false }, ...prev]);
-      window.dispatchEvent(new Event("karoLocalChange"));
+      const newItem = { ...form, id: genId(), marked: false };
+      setItems(prev => [newItem, ...prev]);
+      window._karoPause = true;
+      setTimeout(() => { window._karoPause = false; }, 10000);
+      supabase.from("expenses").upsert([{ id: newItem.id, project: pKey, date: newItem.date, amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0), receiptno: String(newItem.receiptNo||""), note: String(newItem.note||""), marked: false }]);
       if (iqd > 0) setCashIQD(prev => prev - iqd);
       if (usd > 0) setCashUSD(prev => prev - usd);
       addCashLog(`${t.sidebar.expenses}: ${form.note||form.receiptNo}`, -iqd, -usd);
