@@ -2911,7 +2911,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     ? Math.round(filtered.reduce((a,b) => a + (Number(b.totalPrice||0) / (Number(b.meters||0) || 1)), 0) / filtered.length) 
     : 0;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -2920,7 +2920,9 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const cur = form.currency || "iqd";
     const item = { ...form, id: genId(), totalPrice, deposit: depositAmt, received: receivedAmt, depositClaimed: false, isReceived: false, marked: false, currency: cur };
     setItems(prev => [item, ...prev]);
-    window.dispatchEvent(new Event("karoLocalChange"));
+    window._karoLocal = true;
+    setTimeout(() => { window._karoLocal = false; }, 10000);
+    await supabase.from("concrete").upsert([{ id: item.id, project: pKey, date: item.date, currency: String(item.currency||'iqd'), meters: Number(item.meters||0), pricepermeter: Number(item.pricePerMeter||0), totalprice: Number(item.totalPrice||0), deposit: Number(item.deposit||0), depositpercent: Number(item.depositPercent||0), received: Number(item.received||0), isreceived: !!item.isReceived, depositclaimed: !!item.depositClaimed, note: String(item.note||''), marked: !!item.marked, paidamount: Number(item.paidAmount||0), payments: JSON.stringify(item.payments||[]) }]);
     resetForm();
     setShowForm(false);
   };
@@ -2942,7 +2944,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     setEditModalOpen(true);
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -2973,7 +2975,10 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       isReceived: false,
       depositClaimed: false
     } : i));
-    window.dispatchEvent(new Event("karoLocalChange"));
+    window._karoLocal = true;
+    setTimeout(() => { window._karoLocal = false; }, 10000);
+    const updatedItem = { ...editItem, ...form, totalPrice: newTotalPrice, deposit: newDeposit, received: newReceived, currency: cur, isReceived: false, depositClaimed: false };
+    await supabase.from("concrete").upsert([{ id: updatedItem.id, project: pKey, date: updatedItem.date, currency: String(updatedItem.currency||'iqd'), meters: Number(updatedItem.meters||0), pricepermeter: Number(updatedItem.pricePerMeter||0), totalprice: Number(updatedItem.totalPrice||0), deposit: Number(updatedItem.deposit||0), depositpercent: Number(updatedItem.depositPercent||0), received: Number(updatedItem.received||0), isreceived: !!updatedItem.isReceived, depositclaimed: !!updatedItem.depositClaimed, note: String(updatedItem.note||''), marked: !!updatedItem.marked, paidamount: Number(updatedItem.paidAmount||0), payments: JSON.stringify(updatedItem.payments||[]) }]);
 
     setEditModalOpen(false);
     resetForm();
