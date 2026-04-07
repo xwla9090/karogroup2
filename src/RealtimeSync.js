@@ -13,7 +13,7 @@ export default function RealtimeSync({ project }) {
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
         const local = JSON.parse(localStorage.getItem(localKey + project) || "[]");
-        if (JSON.stringify(data.map(d => d.id).sort()) !== JSON.stringify(local.map(d => d.id).sort())) {
+        if (JSON.stringify(data.sort((a,b)=>a.id>b.id?1:-1)) !== JSON.stringify(local.sort((a,b)=>a.id>b.id?1:-1))) {
           localStorage.setItem(localKey + project, JSON.stringify(data.map(mapper)));
           window.dispatchEvent(new Event("karoDataUpdate"));
         }
