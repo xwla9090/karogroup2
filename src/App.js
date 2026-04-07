@@ -712,7 +712,7 @@ export default function App() {
           }
         } catch(e) {}
       };
-      // smartFetch();
+      fetchFromSupabase();
     }
   }, [loggedUser?.project]);
 
