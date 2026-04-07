@@ -1880,6 +1880,11 @@ function InboxModal({ t, s, isRtl, messages, onClose, onMarkAsRead }) {
 function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
   const KEY = `karo_exp_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ amountIQD: "", amountUSD: "", receiptNo: "", note: "", date: today(), receiptImg: "" });
