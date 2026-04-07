@@ -1939,6 +1939,9 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
         addCashLog(`${t.edit} ${t.sidebar.expenses}`, diffIQD, diffUSD);
       }
       setItems(prev => prev.map(i => i.id === editItem.id ? { ...i, ...form } : i));
+      window._karoLocal = true;
+      setTimeout(() => { window._karoLocal = false; }, 10000);
+      await supabase.from("expenses").upsert([{ id: editItem.id, project: pKey, date: form.date, amountiqd: Number(form.amountIQD||0), amountusd: Number(form.amountUSD||0), receiptno: String(form.receiptNo||""), note: String(form.note||""), marked: !!form.marked }]);
     window.dispatchEvent(new Event("karoLocalChange"));
       setEditModalOpen(false);
     } else {
