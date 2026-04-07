@@ -629,6 +629,12 @@ export default function App() {
   const [cashLog, setCashLog] = useState(getLS(`karo_cashLog_${pKey}`, []));
 
   useEffect(() => {
+    if (!pKey || pKey === "default") return;
+    const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
+    supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
+  }, [cashIQD, cashUSD, exchangeRate, pKey]);
+
+  useEffect(() => {
     if (loggedUser && !loggedUser.isAdmin) {
       const userMessages = messages.filter(m => 
         m.to.includes(loggedUser.project) && !m.read
