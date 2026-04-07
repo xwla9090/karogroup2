@@ -2890,8 +2890,6 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   useEffect(() => {
     setLS(KEY, items);
     if (items.length > 0 && pKey && pKey !== "default") {
-      window._karoLocal = true;
-      setTimeout(() => { window._karoLocal = false; }, 5000);
       const rows = items.map(c => ({ id: c.id, project: pKey, date: c.date, currency: String(c.currency||"iqd"), meters: Number(c.meters||0), pricepermeter: Number(c.pricePerMeter||0), totalprice: Number(c.totalPrice||0), deposit: Number(c.deposit||0), depositpercent: Number(c.depositPercent||0), received: Number(c.received||0), isreceived: !!c.isReceived, depositclaimed: !!c.depositClaimed, note: String(c.note||""), marked: !!c.marked, paidamount: Number(c.paidAmount||0), payments: JSON.stringify(c.payments||[]) }));
       supabase.from("concrete").upsert(rows);
     }
