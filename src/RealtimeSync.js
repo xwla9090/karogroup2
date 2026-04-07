@@ -1,8 +1,7 @@
-
 import { useEffect } from "react";
 import { supabase } from "./supabase";
 
-export default function RealtimeSync({ project }) {
+export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
   useEffect(() => {
     if (!project) return;
 
@@ -29,6 +28,8 @@ export default function RealtimeSync({ project }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project }, async (payload) => {
         const newData = payload.new;
         if (!newData) return;
+        if (window._karoLocal) return;
+        
         const localFormatted = localStorage.getItem("karo_formatted_" + project);
         if (newData.formatted_at && newData.formatted_at !== localFormatted) {
           localStorage.setItem("karo_formatted_" + project, newData.formatted_at);
@@ -41,7 +42,16 @@ export default function RealtimeSync({ project }) {
           localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(0));
           localStorage.setItem("karo_cashLog_" + project, JSON.stringify([]));
           window.dispatchEvent(new Event("karoDataUpdate"));
+          return;
         }
+
+        if (newData.cashiqd !== undefined) {
+          localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(newData.cashiqd || 0));
+          localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(newData.cashusd || 0));
+          if (setCashIQD) setCashIQD(newData.cashiqd || 0);
+          if (setCashUSD) setCashUSD(newData.cashusd || 0);
+        }
+
         if (newData.cashlog) {
           const localCashLog = JSON.parse(localStorage.getItem("karo_cashLog_" + project) || "[]");
           const remoteCashLog = JSON.parse(newData.cashlog || "[]");
@@ -49,11 +59,6 @@ export default function RealtimeSync({ project }) {
             localStorage.setItem("karo_cashLog_" + project, newData.cashlog);
             window.dispatchEvent(new Event("karoDataUpdate"));
           }
-        }
-        if (newData.cashiqd !== undefined || newData.cashusd !== undefined) {
-          localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(newData.cashiqd || 0));
-          localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(newData.cashusd || 0));
-          window.dispatchEvent(new Event("karoDataUpdate"));
         }
       }).subscribe();
 
