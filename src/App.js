@@ -630,18 +630,9 @@ export default function App() {
 
   useEffect(() => {
     if (!pKey || pKey === "default") return;
-    window._karoLocal = true;
-    setTimeout(() => { window._karoLocal = false; }, 10000);
     const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
     supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
   }, [cashIQD, cashUSD, exchangeRate, pKey]);
-
-  useEffect(() => {
-    if (!pKey || pKey === "default") return;
-    const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
-    supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
-  }, [cashIQD, cashUSD, exchangeRate, pKey]);
-
   useEffect(() => {
     if (loggedUser && !loggedUser.isAdmin) {
       const userMessages = messages.filter(m => 
