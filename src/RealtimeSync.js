@@ -28,7 +28,6 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project }, async (payload) => {
         const newData = payload.new;
         if (!newData) return;
-        if (window._karoLocal) return;
         
         const localFormatted = localStorage.getItem("karo_formatted_" + project);
         if (newData.formatted_at && newData.formatted_at !== localFormatted) {
