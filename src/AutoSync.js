@@ -22,14 +22,6 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         if (hash === lastHash.current) return;
         lastHash.current = hash;
 
-        if (exp.length > 0) {
-          var rows = [];
-          for (var j = 0; j < exp.length; j++) {
-            var e = exp[j];
-            rows.push({ id: e.id, project: project, date: e.date, amountiqd: N(e.amountIQD), amountusd: N(e.amountUSD), receiptno: S(e.receiptNo), note: S(e.note), marked: B(e.marked) });
-          }
-          await supabase.from("expenses").upsert(rows);
-        }
 
         if (conc.length > 0) {
           var rows2 = [];
