@@ -4,10 +4,9 @@ import { supabase } from "./supabase";
 export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
   useEffect(() => {
     if (!project) return;
-    window._karoLastSync = Date.now();
 
     const fetchAndUpdate = async (table, localKey, mapper) => {
-      if (window._karoPause) return;
+      if (window._karoLocal) return;
       if (window._karoLocal || (window._karoLastSync && Date.now() - window._karoLastSync < 5000)) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
