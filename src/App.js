@@ -2895,13 +2895,6 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       supabase.from("concrete").upsert(rows).then(() => { window._karoLocal = false; });
     }
   }, [items, KEY, pKey]);
-    setLS(KEY, items);
-    if (pKey && pKey !== "default" && items.length > 0) {
-      window._karoLocal = true;
-      const rows = items.map(c => ({ id: c.id, project: pKey, date: c.date, currency: String(c.currency||"iqd"), meters: Number(c.meters||0), pricepermeter: Number(c.pricePerMeter||0), totalprice: Number(c.totalPrice||0), deposit: Number(c.deposit||0), depositpercent: Number(c.depositPercent||0), received: Number(c.received||0), isreceived: !!c.isReceived, depositclaimed: !!c.depositClaimed, note: String(c.note||""), marked: !!c.marked, paidamount: Number(c.paidAmount||0), payments: JSON.stringify(c.payments||[]) }));
-      supabase.from("concrete").upsert(rows).then(() => { window._karoLocal = false; });
-    }
-  }, [items, KEY, pKey]);
 
   const totalPrice = Number(form.meters||0) * Number(form.pricePerMeter||0);
   const depositAmt = Math.round(totalPrice * Number(form.depositPercent||0) / 100);
