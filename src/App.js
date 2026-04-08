@@ -2991,7 +2991,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     resetForm();
   };
 
-  const markReceived = id => {
+  const markReceived = async id => {
   const markReceived = async id => {
       setAlert(t.frozen);
       return;
