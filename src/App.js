@@ -2891,6 +2891,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     setLS(KEY, items);
     if (pKey && pKey !== "default" && items.length > 0) {
       window._karoLocal = true;
+      window._karoLastSync = Date.now();
       const rows = items.map(c => ({ id: c.id, project: pKey, date: c.date, currency: String(c.currency||"iqd"), meters: Number(c.meters||0), pricepermeter: Number(c.pricePerMeter||0), totalprice: Number(c.totalPrice||0), deposit: Number(c.deposit||0), depositpercent: Number(c.depositPercent||0), received: Number(c.received||0), isreceived: !!c.isReceived, depositclaimed: !!c.depositClaimed, note: String(c.note||""), marked: !!c.marked, paidamount: Number(c.paidAmount||0), payments: JSON.stringify(c.payments||[]) }));
       supabase.from("concrete").upsert(rows).then(() => { window._karoLocal = false; });
     }
