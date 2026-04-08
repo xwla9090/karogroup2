@@ -3001,11 +3001,10 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       if (cur === "usd") { setCashUSD(prev => prev + item.received); }
       else { setCashIQD(prev => prev + item.received); }
       addCashLog(`${t.received} ${t.sidebar.concrete}`, cur === "iqd" ? item.received : 0, cur === "usd" ? item.received : 0);
-      setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
       window._karoLocal = true;
+      setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
       await supabase.from("concrete").update({ isreceived: true }).eq("id", id);
       window._karoLocal = false;
-    }
   };
 
   const unmarkReceived = id => {
