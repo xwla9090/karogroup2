@@ -3005,6 +3005,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       await supabase.from("concrete").update({ isreceived: true }).eq("id", id);
       setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
       window._karoLocal = false;
+      window._karoLocal = false;
+    }
   };
   const unmarkReceived = id => {
     if (isFrozen) { setAlert(t.frozen); return; }
