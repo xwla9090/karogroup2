@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
   useEffect(() => {
     if (!project) return;
+    window._karoLastSync = Date.now();
 
     const fetchAndUpdate = async (table, localKey, mapper) => {
       if (window._karoPause) return;
