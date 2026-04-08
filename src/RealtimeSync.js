@@ -7,7 +7,6 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
 
     const fetchAndUpdate = async (table, localKey, mapper) => {
       if (window._karoLocal) return;
-      if (window._karoLocal || (window._karoLastSync && Date.now() - window._karoLastSync < 5000)) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
         const local = JSON.parse(localStorage.getItem(localKey + project) || "[]");
