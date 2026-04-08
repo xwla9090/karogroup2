@@ -107,7 +107,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
       } catch(err) { console.error("Sync error:", err); }
     };
     doSync();
-    var interval = setInterval(doSync, 5000);
+    var interval = setInterval(doSync, 60000);
     return () => clearInterval(interval);
   }, [project, cashIQD, cashUSD, exchangeRate, users]);
   return null;
