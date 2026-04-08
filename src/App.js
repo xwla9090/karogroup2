@@ -2992,7 +2992,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   };
 
   const markReceived = id => {
-    if (isFrozen) {
+  const markReceived = async id => {
       setAlert(t.frozen);
       return;
     }
@@ -3003,8 +3003,9 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       else { setCashIQD(prev => prev + item.received); }
       addCashLog(`${t.received} ${t.sidebar.concrete}`, cur === "iqd" ? item.received : 0, cur === "usd" ? item.received : 0);
       setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
-    window.dispatchEvent(new Event("karoLocalChange"));
-    window.dispatchEvent(new Event("karoLocalChange"));
+      window._karoLocal = true;
+      await supabase.from("concrete").update({ isreceived: true }).eq("id", id);
+      window._karoLocal = false;
     }
   };
 
