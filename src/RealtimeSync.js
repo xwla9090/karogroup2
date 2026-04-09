@@ -7,7 +7,7 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
 
     const fetchAndUpdate = async (table, localKey, mapper) => {
       if (window._karoLocal) return;
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 3000));
       if (window._karoLocal) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
@@ -26,7 +26,7 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
 
     const concSub = supabase.channel("conc2_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "concrete", filter: "project=eq." + project }, () => {
-        setTimeout(() => fetchAndUpdate("concrete", "karo_conc_", c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") })), 2000);
+        fetchAndUpdate("concrete", "karo_conc_", c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
       }).subscribe();
 
     const cashSub = supabase.channel("cash_rt_" + project)
