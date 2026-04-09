@@ -1199,7 +1199,7 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
   {items.map((p, index) => (
     <button
       key={p.id}
-      onClick={() => setDashPage(p.id)}
+      onClick={() => { setDashPage(p.id); setTimeout(() => window.dispatchEvent(new Event("karoDataUpdate")), 100); }}
       disabled={isFrozen && !user.isAdmin && p.id !== "reports" && p.id !== "cash" && p.id !== "history"}
       style={{
         display: "flex",
