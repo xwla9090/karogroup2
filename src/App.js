@@ -2871,7 +2871,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   const KEY = `karo_conc_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
   useEffect(() => {
-    const handler = () => { if (!window._karoLocal) setItems(getLS(KEY, [])); };
+    const handler = () => { if (!window._karoLocal) { setTimeout(() => { if (!window._karoLocal) setItems(getLS(KEY, [])); }, 1000); } };
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
   }, [KEY]);
