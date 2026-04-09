@@ -2993,10 +2993,11 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       else { setCashIQD(prev => prev + item.received); }
       addCashLog(`${t.received} ${t.sidebar.concrete}`, cur === "iqd" ? item.received : 0, cur === "usd" ? item.received : 0);
       window._karoLocal = true;
-      await supabase.from("concrete").update({ isreceived: true }).eq("id", id);
+      window._karoLocal = true;
+      const updItem = { ...item, isReceived: true };
+      await supabase.from("concrete").upsert([{ id: updItem.id, project: pKey, date: updItem.date, currency: String(updItem.currency||"iqd"), meters: Number(updItem.meters||0), pricepermeter: Number(updItem.pricePerMeter||0), totalprice: Number(updItem.totalPrice||0), deposit: Number(updItem.deposit||0), depositpercent: Number(updItem.depositPercent||0), received: Number(updItem.received||0), isreceived: true, depositclaimed: !!updItem.depositClaimed, note: String(updItem.note||""), marked: !!updItem.marked, paidamount: Number(updItem.paidAmount||0), payments: JSON.stringify(updItem.payments||[]) }]);
       setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
       window._karoLocal = false;
-    }
   };
   const unmarkReceived = id => {
     if (isFrozen) { setAlert(t.frozen); return; }
