@@ -3034,8 +3034,9 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const remaining = Math.max(0, Number(item.received||0) - newPaid);
     if (cur === "usd") { setCashUSD(prev => prev + amt); }
     else { setCashIQD(prev => prev + amt); }
+    else { setCashIQD(prev => prev + amt); }
+    window._karoLocal = true;
     addCashLog("payment: " + amt, cur === "iqd" ? amt : 0, cur === "usd" ? amt : 0);
-    const newPaymentObj = { id: genId(), amount: amt, date: date || today(), note: note || "" };
     const newPaymentsList = [...(items.find(i => i.id === id)?.payments || []), newPaymentObj];
     setItems(prev => prev.map(i => i.id === id ? { ...i, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList } : i));
     window._karoLocal = true;
