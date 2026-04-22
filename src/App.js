@@ -3021,7 +3021,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   };
 
 
-  const addPayment = (id, amount, date, note) => {
+  const addPayment = async (id, amount, date, note) => {
     if (isFrozen) { setAlert(t.frozen); return; }
     const item = items.find(i => i.id === id);
     if (!item) return;
@@ -3037,8 +3037,10 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const newPaymentObj = { id: genId(), amount: amt, date: date || today(), note: note || "" };
     const newPaymentsList = [...(items.find(i => i.id === id)?.payments || []), newPaymentObj];
     setItems(prev => prev.map(i => i.id === id ? { ...i, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList } : i));
-    window.dispatchEvent(new Event("karoLocalChange"));
-    window.dispatchEvent(new Event("karoLocalChange"));
+    window._karoLocal = true;
+    const updItem = { ...item, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList };
+    await supabase.from("concrete").upsert([{ id: updItem.id, project: pKey, date: updItem.date, currency: String(updItem.currency||"iqd"), meters: Number(updItem.meters||0), pricepermeter: Number(updItem.pricePerMeter||0), totalprice: Number(updItem.totalPrice||0), deposit: Number(updItem.deposit||0), depositpercent: Number(updItem.depositPercent||0), received: Number(updItem.received||0), isreceived: remaining <= 0, depositclaimed: !!updItem.depositClaimed, note: String(updItem.note||""), marked: !!updItem.marked, paidamount: newPaid, payments: JSON.stringify(newPaymentsList) }]);
+    window._karoLocal = false;
     setPaymentModal(null);
     setPaymentAmount("");
   };
