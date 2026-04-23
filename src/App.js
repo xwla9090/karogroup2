@@ -630,8 +630,9 @@ export default function App() {
 
   useEffect(() => {
     if (!pKey || pKey === "default") return;
-    if (window._karoLocal) return;
+    if (window._karoIgnore && window._karoIgnore["cash"]) return;
     const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
+    if (window._karoIgnore) window._karoIgnore("cash", 4000);
     supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
   }, [cashIQD, cashUSD, exchangeRate, pKey]);
   useEffect(() => {
@@ -791,14 +792,13 @@ export default function App() {
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
     onCashUpdate={cash => {
-      window._karoLocal = true;
+      if (window._karoIgnore) window._karoIgnore("cash", 4000);
       setCashIQD(cash.cashiqd || 0);
       setCashUSD(cash.cashusd || 0);
       setExchangeRate(cash.exchangerate || 1500);
       localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(cash.cashiqd || 0));
       localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(cash.cashusd || 0));
       window.dispatchEvent(new Event("karoDataUpdate"));
-      setTimeout(() => { window._karoLocal = false; }, 3000);
     }}
   /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
   return <LandingPage {...shared} setLang={setLang} setDark={setDark} onLogoClick={handleLogoClick} />;
@@ -2529,7 +2529,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       
       const updItem = {...editItem, ...form, personName: pName};
       setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
-      window._karoLocal = true;
+      if (window._karoIgnore) window._karoIgnore("loans", 4000);
       await supabase.from("loans").upsert([{
         id: updItem.id, project: pKey,
         type: updItem.type,
@@ -2541,7 +2541,6 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         returned: !!updItem.returned,
         marked: !!updItem.marked
       }]);
-      setTimeout(() => { window._karoLocal = false; }, 3000);
       setEditModalOpen(false);
     } else {
       if (form.type==="give") {
@@ -2556,7 +2555,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       }
       const newItem = {...form, personName: pName, id: genId(), marked: false, returned: false};
       setItems(prev => [newItem, ...prev]);
-      window._karoLocal = true;
+      if (window._karoIgnore) window._karoIgnore("loans", 4000);
       await supabase.from("loans").upsert([{
         id: newItem.id, project: pKey,
         type: newItem.type,
@@ -2568,7 +2567,6 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         returned: false,
         marked: false
       }]);
-      setTimeout(() => { window._karoLocal = false; }, 3000);
       setShowForm(false);
     }
     resetForm(); 
@@ -2599,7 +2597,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 
     const updItem = { ...item, returned: true, amountIQD: 0, amountUSD: 0 };
     setItems(prev => prev.map(i => i.id === id ? updItem : i));
-    window._karoLocal = true;
+    if (window._karoIgnore) window._karoIgnore("loans", 4000);
     await supabase.from("loans").upsert([{
       id: updItem.id, project: pKey,
       type: updItem.type,
@@ -2611,7 +2609,6 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       returned: true,
       marked: !!updItem.marked
     }]);
-    setTimeout(() => { window._karoLocal = false; }, 3000);
     setConfirmReturn(null);
   };
 
@@ -2634,9 +2631,8 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       }
     }
     setItems(prev => prev.filter(i=>i.id!==id));
-    window._karoLocal = true;
+    if (window._karoIgnore) window._karoIgnore("loans", 4000);
     await supabase.from("loans").delete().eq("id", id);
-    setTimeout(() => { window._karoLocal = false; }, 3000);
     setConfirmDel(null);
   };
 
@@ -3718,7 +3714,7 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
       }
       const updItem = {...editItem, ...form, personName: pName};
       setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
-      window._karoLocal = true;
+      if (window._karoIgnore) window._karoIgnore("loans", 4000);
       await supabase.from("loans").upsert([{
         id: updItem.id, project: pKey,
         type: updItem.type,
@@ -3730,7 +3726,6 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
         returned: !!updItem.returned,
         marked: !!updItem.marked
       }]);
-      setTimeout(() => { window._karoLocal = false; }, 3000);
       setEditModalOpen(false);
     } else {
       if (form.type==="withdraw") {

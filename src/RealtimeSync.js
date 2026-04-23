@@ -1,73 +1,56 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
-export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
+export default function RealtimeSync({ project, onExpUpdate, onLoansUpdate, onConcUpdate, onCashUpdate }) {
+  const ignoreRef = useRef({});
+
   useEffect(() => {
     if (!project) return;
 
-    const fetchAndUpdate = async (table, localKey, mapper) => {
-      if (window._karoLocal) return;
+    window._karoIgnore = (table, ms = 4000) => {
+      ignoreRef.current[table] = true;
+      setTimeout(() => { ignoreRef.current[table] = false; }, ms);
+    };
+
+    const fetchAndUpdate = async (table, mapper, callback) => {
+      if (ignoreRef.current[table]) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
-      if (data) {
-        localStorage.setItem(localKey + project, JSON.stringify(data.map(mapper)));
-        window.dispatchEvent(new Event("karoDataUpdate"));
-      }
+      if (data && callback) callback(data.map(mapper));
     };
 
     const expSub = supabase.channel("exp2_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: "project=eq." + project }, () => {
-        fetchAndUpdate("expenses", "karo_exp_", e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
-      }).subscribe();
-
-    const concSub = supabase.channel("conc2_" + project)
-      .on("postgres_changes", { event: "*", schema: "public", table: "concrete", filter: "project=eq." + project }, () => {
-        fetchAndUpdate("concrete", "karo_conc_", c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
+        fetchAndUpdate("expenses", e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }), onExpUpdate);
       }).subscribe();
 
     const loansSub = supabase.channel("loans_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "loans", filter: "project=eq." + project }, () => {
-        fetchAndUpdate("loans", "karo_loans_", l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }));
+        fetchAndUpdate("loans", l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }), onLoansUpdate);
+      }).subscribe();
+
+    const concSub = supabase.channel("conc2_" + project)
+      .on("postgres_changes", { event: "*", schema: "public", table: "concrete", filter: "project=eq." + project }, () => {
+        fetchAndUpdate("concrete", c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }), onConcUpdate);
       }).subscribe();
 
     const cashSub = supabase.channel("cash_rt_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project }, async (payload) => {
+        if (ignoreRef.current["cash"]) return;
         const newData = payload.new;
         if (!newData) return;
-        if (window._karoLocal) return;
 
         const localFormatted = localStorage.getItem("karo_formatted_" + project);
         if (newData.formatted_at && newData.formatted_at !== localFormatted) {
           localStorage.setItem("karo_formatted_" + project, newData.formatted_at);
-          localStorage.setItem("karo_exp_" + project, JSON.stringify([]));
-          localStorage.setItem("karo_conc_" + project, JSON.stringify([]));
-          localStorage.setItem("karo_loans_" + project, JSON.stringify([]));
-          localStorage.setItem("karo_contr_" + project, JSON.stringify([]));
-          localStorage.setItem("karo_inv_" + project, JSON.stringify([]));
-          localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(0));
-          localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(0));
-          localStorage.setItem("karo_cashLog_" + project, JSON.stringify([]));
+          ["exp","conc","loans","contr","inv"].forEach(k => localStorage.setItem("karo_" + k + "_" + project, "[]"));
+          localStorage.setItem("karo_cashIQD_" + project, "0");
+          localStorage.setItem("karo_cashUSD_" + project, "0");
+          localStorage.setItem("karo_cashLog_" + project, "[]");
           window.dispatchEvent(new Event("karoDataUpdate"));
           return;
         }
 
-        if (newData.cashiqd !== undefined) {
-          window._karoLocal = true;
-          localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(newData.cashiqd || 0));
-          localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(newData.cashusd || 0));
-          if (setCashIQD) setCashIQD(newData.cashiqd || 0);
-          if (setCashUSD) setCashUSD(newData.cashusd || 0);
-          window.dispatchEvent(new Event("karoDataUpdate"));
-          setTimeout(() => { window._karoLocal = false; }, 3000);
-        }
-
-        if (newData.cashlog) {
-          const localCashLog = JSON.parse(localStorage.getItem("karo_cashLog_" + project) || "[]");
-          const remoteCashLog = JSON.parse(newData.cashlog || "[]");
-          if (remoteCashLog.length !== localCashLog.length) {
-            localStorage.setItem("karo_cashLog_" + project, newData.cashlog);
-            window.dispatchEvent(new Event("karoDataUpdate"));
-          }
-        }
+        if (onCashUpdate) onCashUpdate(newData);
       }).subscribe();
 
     return () => {
