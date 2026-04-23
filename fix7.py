@@ -1,26 +1,55 @@
-with open('src/App.js', encoding='utf-8') as f:
-    content = f.read()
+FILE = r"C:\Users\surface\OneDrive\Desktop\karogroup2\src\App.js"
 
-# هەموی وەرگیرا - پاشگەزبوونەوە زیاد دەکەین
-old1 = '                      {item.isReceived ? <span style={{ color: s.success, fontSize: 12, fontWeight: 600 }}>✓ هەموی وەرگیرا</span> : <span style={{ color: s.textMuted, fontSize: 11 }}>{sym}{fmt(Number(item.paidAmount||0))}</span>}'
-new1 = '                      {item.isReceived ? <span style={{ color: s.success, fontSize: 12, fontWeight: 600, cursor: "pointer" }} onClick={()=>unmarkReceived(item.id)} title="پاشگەزبوونەوە">✓ هەموی وەرگیرا ↩</span> : <span style={{ color: s.textMuted, fontSize: 11 }}>{sym}{fmt(Number(item.paidAmount||0))}</span>}'
+with open(FILE, "r", encoding="utf-8") as f:
+    src = f.read()
 
-# وەرگرتنی تەئمین - پاشگەزبوونەوە زیاد دەکەین
-old2 = '                      {item.depositClaimed ? <span style={{ color: s.success, fontSize: 12, fontWeight: 600 }}>✓ {t.claimDeposit}</span>'
-new2 = '                      {item.depositClaimed ? <span style={{ color: s.success, fontSize: 12, fontWeight: 600, cursor: "pointer" }} onClick={()=>unclaimDeposit(item.id)} title="پاشگەزبوونەوە">✓ {t.claimDeposit} ↩</span>'
+changes = []
 
-if old1 in content:
-    content = content.replace(old1, new1, 1)
-    print('found1!')
+# ============================================================
+# FIX 1: LoansPage — karoDataUpdate listener زیاد بکە
+# ============================================================
+old1 = """  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
+  useEffect(() => { setLS(PERSONS_KEY, personsList); }, [personsList, PERSONS_KEY]);
+
+  useEffect(() => {
+    const namesFromItems = [...new Set(items.map(i => i.personName).filter(name => name && name.trim() !== ""))];
+    const merged = [...new Set([...personsList, ...namesFromItems])];
+    if (merged.length !== personsList.length) setPersonsList(merged);
+  }, [items]);"""
+
+new1 = """  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
+  useEffect(() => { setLS(PERSONS_KEY, personsList); }, [personsList, PERSONS_KEY]);
+
+  useEffect(() => {
+    const handler = () => { setItems(getLS(KEY, [])); };
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
+
+  useEffect(() => {
+    const namesFromItems = [...new Set(items.map(i => i.personName).filter(name => name && name.trim() !== ""))];
+    const merged = [...new Set([...personsList, ...namesFromItems])];
+    if (merged.length !== personsList.length) setPersonsList(merged);
+  }, [items]);"""
+
+if old1 in src:
+    src = src.replace(old1, new1)
+    changes.append("✅ FIX 1: LoansPage — karoDataUpdate listener زیاد کرا")
 else:
-    print('NOT FOUND 1')
+    changes.append("⚠️  FIX 1: LoansPage listener نەدۆزرایەوە")
 
-if old2 in content:
-    content = content.replace(old2, new2, 1)
-    print('found2!')
-else:
-    print('NOT FOUND 2')
+# ============================================================
+# ذخیره فایل
+# ============================================================
+with open(FILE, "w", encoding="utf-8") as f:
+    f.write(src)
 
-with open('src/App.js', 'w', encoding='utf-8') as f:
-    f.write(content)
-print('saved!')
+print("\n" + "="*55)
+print("  کارۆ گروپ — LoansPage Listener Fix 7")
+print("="*55)
+for c in changes:
+    print(c)
+print("="*55)
+print(f"\n✅ فایل پاشەکەوت کرا:\n   {FILE}")
+print("\nئێستا ئەمەی خوارەوە بنووسە:")
+print('  git add . && git commit -m "fix: loans realtime listener" && git push')

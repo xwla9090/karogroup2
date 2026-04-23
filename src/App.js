@@ -2429,6 +2429,12 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   useEffect(() => { setLS(PERSONS_KEY, personsList); }, [personsList, PERSONS_KEY]);
 
   useEffect(() => {
+    const handler = () => { setItems(getLS(KEY, [])); };
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
+
+  useEffect(() => {
     const namesFromItems = [...new Set(items.map(i => i.personName).filter(name => name && name.trim() !== ""))];
     const merged = [...new Set([...personsList, ...namesFromItems])];
     if (merged.length !== personsList.length) setPersonsList(merged);
