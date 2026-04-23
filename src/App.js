@@ -791,11 +791,14 @@ export default function App() {
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
     onCashUpdate={cash => {
+      window._karoLocal = true;
       setCashIQD(cash.cashiqd || 0);
       setCashUSD(cash.cashusd || 0);
       setExchangeRate(cash.exchangerate || 1500);
       localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(cash.cashiqd || 0));
       localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(cash.cashusd || 0));
+      window.dispatchEvent(new Event("karoDataUpdate"));
+      setTimeout(() => { window._karoLocal = false; }, 3000);
     }}
   /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
   return <LandingPage {...shared} setLang={setLang} setDark={setDark} onLogoClick={handleLogoClick} />;
@@ -2500,26 +2503,29 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 
     if (editItem) {
       const old = items.find(i => i.id === editItem.id);
-      if (old && !old.returned) {
-        if (old.type==="take") { 
-          setCashIQD(p=>p-Number(old.amountIQD||0)); 
-          setCashUSD(p=>p-Number(old.amountUSD||0)); 
-        } else { 
-          setCashIQD(p=>p+Number(old.amountIQD||0)); 
-          setCashUSD(p=>p+Number(old.amountUSD||0)); 
-        }
+      const oldIQD = (old && !old.returned) ? Number(old.amountIQD||0) : 0;
+      const oldUSD = (old && !old.returned) ? Number(old.amountUSD||0) : 0;
+      const oldType = old ? old.type : form.type;
+
+      // فەرقی پارە حیساب بکە
+      let diffIQD = 0, diffUSD = 0;
+      if (form.type === "take") {
+        // کۆنەکە برگیرەوە، نوێکە زیاد بکە
+        if (oldType === "take") { diffIQD = iqd - oldIQD; diffUSD = usd - oldUSD; }
+        else { diffIQD = iqd + oldIQD; diffUSD = usd + oldUSD; }
+      } else {
+        // give
+        if (oldType === "give") { diffIQD = -(iqd - oldIQD); diffUSD = -(usd - oldUSD); }
+        else { diffIQD = -(iqd + oldIQD); diffUSD = -(usd + oldUSD); }
       }
-      
-      if (form.type==="take" && !form.returned) { 
-        setCashIQD(p=>p+iqd); 
-        setCashUSD(p=>p+usd); 
-        addCashLog(`${t.edit} ${t.loanTake}: ${pName}`, iqd, usd); 
-      } else if (form.type==="give" && !form.returned) {
-        if (iqd>cashIQD||usd>cashUSD) { setAlert(t.noBalance); return; }
-        setCashIQD(p=>p-iqd); 
-        setCashUSD(p=>p-usd); 
-        addCashLog(`${t.edit} ${t.loanGive}: ${pName}`, -iqd, -usd);
+
+      if (form.type === "give" && (cashIQD + diffIQD < 0 || cashUSD + diffUSD < 0)) {
+        setAlert(t.noBalance); return;
       }
+
+      setCashIQD(p => p + diffIQD);
+      setCashUSD(p => p + diffUSD);
+      addCashLog(`${t.edit} ${form.type==="take"?t.loanTake:t.loanGive}: ${pName}`, diffIQD, diffUSD);
       
       const updItem = {...editItem, ...form, personName: pName};
       setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
