@@ -1893,7 +1893,11 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   const KEY = `karo_exp_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
   useEffect(() => {
-    const handler = () => { setItems(getLS(KEY, [])); };
+    const handler = () => {
+      if (!window._karoLocal) {
+        setItems(getLS(KEY, []));
+      }
+    };
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
   }, [KEY]);
@@ -2429,7 +2433,11 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   useEffect(() => { setLS(PERSONS_KEY, personsList); }, [personsList, PERSONS_KEY]);
 
   useEffect(() => {
-    const handler = () => { setItems(getLS(KEY, [])); };
+    const handler = () => {
+      if (!window._karoLocal) {
+        setItems(getLS(KEY, []));
+      }
+    };
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
   }, [KEY]);
@@ -2636,8 +2644,6 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   };
   
   const toggleMark = id => setItems(prev => prev.map(i => i.id===id?{...i,marked:!i.marked}:i));
-    window.dispatchEvent(new Event("karoLocalChange"));
-    window.dispatchEvent(new Event("karoLocalChange"));
 
   const doExport = (type, size) => {
     const hdrs = [t.loanType, t.personName, t.amountIQD, t.amountUSD, t.returned, t.note, t.date];
@@ -3769,8 +3775,6 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
   };
   
   const toggleMark = id => setItems(prev => prev.map(i => i.id===id?{...i,marked:!i.marked}:i));
-    window.dispatchEvent(new Event("karoLocalChange"));
-    window.dispatchEvent(new Event("karoLocalChange"));
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
