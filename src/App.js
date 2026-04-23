@@ -2573,7 +2573,9 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         returned: false,
         marked: false
       };
-      setItems(prev => [newItem, ...prev]);
+      const updatedLoans = [newItem, ...items];
+      setItems(updatedLoans);
+      localStorage.setItem("karo_loans_" + pKey, JSON.stringify(updatedLoans));
       await supabase.from("loans").upsert([{
         id: newItem.id, project: pKey,
         type: newItem.type,
