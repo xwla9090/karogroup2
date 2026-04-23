@@ -1,10 +1,34 @@
+FILE = r"C:\Users\surface\OneDrive\Desktop\karogroup2\src\App.js"
 
-with open('src/App.js', encoding='utf-8') as f:
+with open(FILE, "r", encoding="utf-8-sig") as f:
     lines = f.readlines()
 
-# لاین 3261 دەگۆڕین
-lines[3260] = '                  {editPaymentId ? (\n                  <div style={{ background: "#fff9e6", border: "1px solid #F59E0B", borderRadius: 8, padding: 10, marginBottom: 10 }}>\n                    <p style={{ fontSize: 12, color: "#D97706", marginBottom: 8, textAlign: "center", fontWeight: 600 }}>گۆڕینی پەرداخت</p>\n                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>\n                      <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: 6, border: "1px solid #e5e5e5", fontSize: 13, direction: "ltr" }} />\n                      <input type="number" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} style={{ flex: 1, padding: "8px", borderRadius: 6, border: "1px solid #e5e5e5", fontSize: 13, direction: "ltr", textAlign: "center" }} />\n                    </div>\n                    <input placeholder="تێبینی" value={paymentNote} onChange={e => setPaymentNote(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid #e5e5e5", fontSize: 13, textAlign: "center", marginBottom: 8 }} />\n                    <div style={{ display: "flex", gap: 8 }}>\n                      <button onClick={() => { editPayment(paymentModal, editPaymentId, paymentAmount, paymentDate, paymentNote); setEditPaymentId(null); }} style={{ flex: 1, background: "#F59E0B", color: "#fff", border: "none", borderRadius: 6, padding: "8px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>گۆڕین</button>\n                      <button onClick={() => { setEditPaymentId(null); setPaymentAmount(""); setPaymentDate(today()); setPaymentNote(""); }} style={{ flex: 1, background: "#f5f5f5", color: "#333", border: "1px solid #e5e5e5", borderRadius: 6, padding: "8px", fontSize: 13, cursor: "pointer" }}>پاشگەزبوونەوە</button>\n                    </div>\n                  </div>\n                  ) : null}\n                  {!item.isReceived && (\n'
+changes = []
 
-with open('src/App.js', 'w', encoding='utf-8') as f:
+for i, line in enumerate(lines):
+    # خەتی ٢٥٤١ — setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
+    if "setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));" in line.strip():
+        indent = line[:len(line) - len(line.lstrip())]
+        # جێگای setItems گۆڕین
+        lines[i] = (
+            indent + "const updatedLoans2 = items.map(i => i.id===editItem.id ? updItem : i);\n" +
+            indent + "setItems(updatedLoans2);\n" +
+            indent + "localStorage.setItem('karo_loans_' + pKey, JSON.stringify(updatedLoans2));\n"
+        )
+        changes.append(f"✅ FIX 1: updItem — localStorage نوێ کرا لە خەتی {i+1}")
+        break
+
+with open(FILE, "w", encoding="utf-8") as f:
     f.writelines(lines)
-print('done!')
+
+print("\n" + "="*55)
+print("  کارۆ گروپ — Fix 20")
+print("="*55)
+for c in changes:
+    print(c)
+if not changes:
+    print("⚠️  هیچ گۆڕانکاری نەدۆزرایەوە")
+print("="*55)
+print("✅ فایل پاشەکەوت کرا")
+print("\nئێستا ئەمەی خوارەوە بنووسە:")
+print('  git add . && git commit -m "fix: loans edit localStorage" && git push')
