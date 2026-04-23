@@ -2529,7 +2529,15 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       setCashUSD(p => p + diffUSD);
       addCashLog(`${t.edit} ${form.type==="take"?t.loanTake:t.loanGive}: ${pName}`, diffIQD, diffUSD);
       
-      const updItem = {...editItem, ...form, personName: pName};
+      const updItem = {
+        ...editItem,
+        type: form.type,
+        personName: pName,
+        amountIQD: iqd,
+        amountUSD: usd,
+        note: form.note || "",
+        date: form.date,
+      };
       setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
       await supabase.from("loans").upsert([{
         id: updItem.id, project: pKey,
@@ -2554,7 +2562,17 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.loanTake}: ${pName}`, iqd, usd);
       }
-      const newItem = {...form, personName: pName, id: genId(), marked: false, returned: false};
+      const newItem = {
+        id: genId(),
+        type: form.type,
+        personName: pName,
+        amountIQD: iqd,
+        amountUSD: usd,
+        note: form.note || "",
+        date: form.date,
+        returned: false,
+        marked: false
+      };
       setItems(prev => [newItem, ...prev]);
       await supabase.from("loans").upsert([{
         id: newItem.id, project: pKey,
@@ -3710,7 +3728,15 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.edit} ${t.addMoney}: ${pName}`, iqd, usd); 
       }
-      const updItem = {...editItem, ...form, personName: pName};
+      const updItem = {
+        ...editItem,
+        type: form.type,
+        personName: pName,
+        amountIQD: iqd,
+        amountUSD: usd,
+        note: form.note || "",
+        date: form.date,
+      };
       setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
       await supabase.from("loans").upsert([{
         id: updItem.id, project: pKey,
