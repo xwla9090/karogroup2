@@ -1,19 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { supabase } from "./supabase";
 
 export default function RealtimeSync({ project, onExpUpdate, onLoansUpdate, onConcUpdate, onCashUpdate }) {
-  const ignoreRef = useRef({});
-
   useEffect(() => {
     if (!project) return;
 
-    window._karoIgnore = (table, ms = 4000) => {
-      ignoreRef.current[table] = true;
-      setTimeout(() => { ignoreRef.current[table] = false; }, ms);
-    };
-
     const fetchAndUpdate = async (table, mapper, callback) => {
-      if (ignoreRef.current[table]) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data && callback) callback(data.map(mapper));
     };
@@ -35,7 +27,6 @@ export default function RealtimeSync({ project, onExpUpdate, onLoansUpdate, onCo
 
     const cashSub = supabase.channel("cash_rt_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project }, async (payload) => {
-        if (ignoreRef.current["cash"]) return;
         const newData = payload.new;
         if (!newData) return;
 
