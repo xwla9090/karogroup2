@@ -1894,9 +1894,9 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   const [items, setItems] = useState(getLS(KEY, []));
   useEffect(() => {
     const handler = () => {
-      if (!window._karoLocal) {
-        setItems(getLS(KEY, []));
-      }
+      if (window._karoLocal) return;
+      const fresh = getLS(KEY, []);
+      setItems(fresh);
     };
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
@@ -2434,9 +2434,9 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 
   useEffect(() => {
     const handler = () => {
-      if (!window._karoLocal) {
-        setItems(getLS(KEY, []));
-      }
+      if (window._karoLocal) return;
+      const fresh = getLS(KEY, []);
+      setItems(fresh);
     };
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
@@ -2534,7 +2534,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         returned: !!updItem.returned,
         marked: !!updItem.marked
       }]);
-      window._karoLocal = false;
+      setTimeout(() => { window._karoLocal = false; }, 3000);
       setEditModalOpen(false);
     } else {
       if (form.type==="give") {
@@ -2561,7 +2561,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         returned: false,
         marked: false
       }]);
-      window._karoLocal = false;
+      setTimeout(() => { window._karoLocal = false; }, 3000);
       setShowForm(false);
     }
     resetForm(); 
@@ -2604,7 +2604,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       returned: true,
       marked: !!updItem.marked
     }]);
-    window._karoLocal = false;
+    setTimeout(() => { window._karoLocal = false; }, 3000);
     setConfirmReturn(null);
   };
 
@@ -2629,7 +2629,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     setItems(prev => prev.filter(i=>i.id!==id));
     window._karoLocal = true;
     await supabase.from("loans").delete().eq("id", id);
-    window._karoLocal = false;
+    setTimeout(() => { window._karoLocal = false; }, 3000);
     setConfirmDel(null);
   };
 
@@ -3723,7 +3723,7 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
         returned: !!updItem.returned,
         marked: !!updItem.marked
       }]);
-      window._karoLocal = false;
+      setTimeout(() => { window._karoLocal = false; }, 3000);
       setEditModalOpen(false);
     } else {
       if (form.type==="withdraw") {
