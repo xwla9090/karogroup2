@@ -723,7 +723,6 @@ export default function App() {
 
   const addCashLog = useCallback((desc, iqd, usd) => {
     setCashLog(prev => { const newBalIQD = cashIQD + (Number(iqd) ? Number(iqd) : 0); const newBalUSD = cashUSD + (Number(usd) ? Number(usd) : 0); const n=[...prev, { id: genId(), date: today(), desc, iqd: Number(iqd) ? Number(iqd) : 0, usd: Number(usd) ? Number(usd) : 0, balIQD: newBalIQD, balUSD: newBalUSD, time: new Date().toLocaleTimeString() }]; if(loggedUser) setLS("karo_cashLog_" + loggedUser.project, n); return n; });
-    setTimeout(() => { if (!window._karoLocal) window.dispatchEvent(new Event("karoDataUpdate")); }, 0);
   }, [loggedUser, cashIQD, cashUSD]);
 
   useEffect(() => {
