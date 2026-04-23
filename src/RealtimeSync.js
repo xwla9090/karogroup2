@@ -51,11 +51,13 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
         }
 
         if (newData.cashiqd !== undefined) {
+          window._karoLocal = true;
           localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(newData.cashiqd || 0));
           localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(newData.cashusd || 0));
           if (setCashIQD) setCashIQD(newData.cashiqd || 0);
           if (setCashUSD) setCashUSD(newData.cashusd || 0);
           window.dispatchEvent(new Event("karoDataUpdate"));
+          setTimeout(() => { window._karoLocal = false; }, 3000);
         }
 
         if (newData.cashlog) {
