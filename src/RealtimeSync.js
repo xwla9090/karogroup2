@@ -30,6 +30,11 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
         fetchAndUpdate("concrete", "karo_conc_", c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
       }).subscribe();
 
+    const loansSub = supabase.channel("loans_" + project)
+      .on("postgres_changes", { event: "*", schema: "public", table: "loans", filter: "project=eq." + project }, () => {
+        fetchAndUpdate("loans", "karo_loans_", l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }));
+      }).subscribe();
+
     const cashSub = supabase.channel("cash_rt_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project }, async (payload) => {
         const newData = payload.new;
@@ -71,6 +76,7 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
     return () => {
       supabase.removeChannel(expSub);
       supabase.removeChannel(concSub);
+      supabase.removeChannel(loansSub);
       supabase.removeChannel(cashSub);
     };
   }, [project]);
