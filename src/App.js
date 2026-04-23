@@ -779,6 +779,11 @@ export default function App() {
       localStorage.setItem("karo_exp_" + loggedUser.project, JSON.stringify(mapped));
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
+    onLoansUpdate={data => {
+      const mapped = data.map(l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }));
+      localStorage.setItem("karo_loans_" + loggedUser.project, JSON.stringify(mapped));
+      window.dispatchEvent(new Event("karoDataUpdate"));
+    }}
     onConcUpdate={data => {
       const mapped = data.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
       localStorage.setItem("karo_conc_" + loggedUser.project, JSON.stringify(mapped));
@@ -2460,7 +2465,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -2501,7 +2506,21 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         addCashLog(`${t.edit} ${t.loanGive}: ${pName}`, -iqd, -usd);
       }
       
-      setItems(prev => prev.map(i => i.id===editItem.id ? {...i, ...form, personName: pName} : i));
+      const updItem = {...editItem, ...form, personName: pName};
+      setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
+      window._karoLocal = true;
+      await supabase.from("loans").upsert([{
+        id: updItem.id, project: pKey,
+        type: updItem.type,
+        personname: String(updItem.personName || ""),
+        amountiqd: Number(updItem.amountIQD || 0),
+        amountusd: Number(updItem.amountUSD || 0),
+        note: String(updItem.note || ""),
+        date: updItem.date,
+        returned: !!updItem.returned,
+        marked: !!updItem.marked
+      }]);
+      window._karoLocal = false;
       setEditModalOpen(false);
     } else {
       if (form.type==="give") {
@@ -2514,13 +2533,27 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.loanTake}: ${pName}`, iqd, usd);
       }
-      setItems(prev => [{...form, personName: pName, id: genId(), marked: false, returned: false}, ...prev]);
+      const newItem = {...form, personName: pName, id: genId(), marked: false, returned: false};
+      setItems(prev => [newItem, ...prev]);
+      window._karoLocal = true;
+      await supabase.from("loans").upsert([{
+        id: newItem.id, project: pKey,
+        type: newItem.type,
+        personname: String(newItem.personName || ""),
+        amountiqd: Number(newItem.amountIQD || 0),
+        amountusd: Number(newItem.amountUSD || 0),
+        note: String(newItem.note || ""),
+        date: newItem.date,
+        returned: false,
+        marked: false
+      }]);
+      window._karoLocal = false;
       setShowForm(false);
     }
     resetForm(); 
   };
 
-  const handleReturn = (id) => {
+  const handleReturn = async (id) => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -2543,13 +2576,25 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       addCashLog(`${t.returnMoney} ${t.loanGive}`, Number(item.amountIQD||0), Number(item.amountUSD||0));
     }
 
-    setItems(prev => prev.map(i => i.id === id ? { ...i, returned: true, amountIQD: 0, amountUSD: 0 } : i));
-    window.dispatchEvent(new Event("karoLocalChange"));
-    window.dispatchEvent(new Event("karoLocalChange"));
+    const updItem = { ...item, returned: true, amountIQD: 0, amountUSD: 0 };
+    setItems(prev => prev.map(i => i.id === id ? updItem : i));
+    window._karoLocal = true;
+    await supabase.from("loans").upsert([{
+      id: updItem.id, project: pKey,
+      type: updItem.type,
+      personname: String(updItem.personName || ""),
+      amountiqd: 0,
+      amountusd: 0,
+      note: String(updItem.note || ""),
+      date: updItem.date,
+      returned: true,
+      marked: !!updItem.marked
+    }]);
+    window._karoLocal = false;
     setConfirmReturn(null);
   };
 
-  const doDelete = id => {
+  const doDelete = async id => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -2568,6 +2613,9 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       }
     }
     setItems(prev => prev.filter(i=>i.id!==id));
+    window._karoLocal = true;
+    await supabase.from("loans").delete().eq("id", id);
+    window._karoLocal = false;
     setConfirmDel(null);
   };
 
@@ -3616,7 +3664,7 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -3649,7 +3697,21 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.edit} ${t.addMoney}: ${pName}`, iqd, usd); 
       }
-      setItems(prev => prev.map(i => i.id===editItem.id ? {...i, ...form, personName: pName} : i));
+      const updItem = {...editItem, ...form, personName: pName};
+      setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
+      window._karoLocal = true;
+      await supabase.from("loans").upsert([{
+        id: updItem.id, project: pKey,
+        type: updItem.type,
+        personname: String(updItem.personName || ""),
+        amountiqd: Number(updItem.amountIQD || 0),
+        amountusd: Number(updItem.amountUSD || 0),
+        note: String(updItem.note || ""),
+        date: updItem.date,
+        returned: !!updItem.returned,
+        marked: !!updItem.marked
+      }]);
+      window._karoLocal = false;
       setEditModalOpen(false);
     } else {
       if (form.type==="withdraw") {
