@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import AutoSync from "./AutoSync";
 import RealtimeSync from "./RealtimeSync";
 import { supabase } from "./supabase";
@@ -2542,9 +2542,9 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       await supabase.from("loans").upsert([{
         id: updItem.id, project: pKey,
         type: updItem.type,
-        personname: String(updItem.personName || ""),
-        amountiqd: Number(updItem.amountIQD || 0),
-        amountusd: Number(updItem.amountUSD || 0),
+        personname: pName,
+        amountiqd: iqd,
+        amountusd: usd,
         note: String(updItem.note || ""),
         date: updItem.date,
         returned: !!updItem.returned,
@@ -2577,9 +2577,9 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       await supabase.from("loans").upsert([{
         id: newItem.id, project: pKey,
         type: newItem.type,
-        personname: String(newItem.personName || ""),
-        amountiqd: Number(newItem.amountIQD || 0),
-        amountusd: Number(newItem.amountUSD || 0),
+        personname: pName,
+        amountiqd: iqd,
+        amountusd: usd,
         note: String(newItem.note || ""),
         date: newItem.date,
         returned: false,
@@ -2618,7 +2618,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     await supabase.from("loans").upsert([{
       id: updItem.id, project: pKey,
       type: updItem.type,
-      personname: String(updItem.personName || ""),
+      personname: pName,
       amountiqd: 0,
       amountusd: 0,
       note: String(updItem.note || ""),
@@ -3741,9 +3741,9 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
       await supabase.from("loans").upsert([{
         id: updItem.id, project: pKey,
         type: updItem.type,
-        personname: String(updItem.personName || ""),
-        amountiqd: Number(updItem.amountIQD || 0),
-        amountusd: Number(updItem.amountUSD || 0),
+        personname: pName,
+        amountiqd: iqd,
+        amountusd: usd,
         note: String(updItem.note || ""),
         date: updItem.date,
         returned: !!updItem.returned,
