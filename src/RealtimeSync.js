@@ -35,17 +35,12 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
         fetchAndUpdate("loans", "karo_loans_", l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }));
       }).subscribe();
 
-    const loansSub = supabase.channel("loans_" + project)
-      .on("postgres_changes", { event: "*", schema: "public", table: "loans", filter: "project=eq." + project }, () => {
-        fetchAndUpdate("loans", "karo_loans_", l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }));
-      }).subscribe();
-
     const cashSub = supabase.channel("cash_rt_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project }, async (payload) => {
         const newData = payload.new;
         if (!newData) return;
         if (window._karoLocal) return;
-        
+
         const localFormatted = localStorage.getItem("karo_formatted_" + project);
         if (newData.formatted_at && newData.formatted_at !== localFormatted) {
           localStorage.setItem("karo_formatted_" + project, newData.formatted_at);
