@@ -7,17 +7,11 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
 
     const fetchAndUpdate = async (table, localKey, mapper) => {
       if (window._karoLocal) return;
-      await new Promise(r => setTimeout(r, 3000));
-      if (window._karoLocal) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
-        const local = JSON.parse(localStorage.getItem(localKey + project) || "[]");
-        if (JSON.stringify(data.sort((a,b)=>a.id>b.id?1:-1)) !== JSON.stringify(local.sort((a,b)=>a.id>b.id?1:-1))) {
-          localStorage.setItem(localKey + project, JSON.stringify(data.map(mapper)));
-          window.dispatchEvent(new Event("karoDataUpdate"));
-        }
+        localStorage.setItem(localKey + project, JSON.stringify(data.map(mapper)));
+        window.dispatchEvent(new Event("karoDataUpdate"));
       }
-      window._karoLocal = false;
     };
 
     const expSub = supabase.channel("exp2_" + project)
@@ -61,6 +55,7 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
           localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(newData.cashusd || 0));
           if (setCashIQD) setCashIQD(newData.cashiqd || 0);
           if (setCashUSD) setCashUSD(newData.cashusd || 0);
+          window.dispatchEvent(new Event("karoDataUpdate"));
         }
 
         if (newData.cashlog) {
