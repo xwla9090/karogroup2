@@ -24,14 +24,8 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
 
 
 
-        if (loans.length > 0) {
-          var rows3 = [];
-          for (var l = 0; l < loans.length; l++) {
-            var ln = loans[l];
-            rows3.push({ id: ln.id, project: project, date: S(ln.date), type: S(ln.type), personname: S(ln.personName), amountiqd: N(ln.amountIQD), amountusd: N(ln.amountUSD), note: S(ln.note), returned: B(ln.returned), marked: B(ln.marked) });
-          }
-          await supabase.from("loans").upsert(rows3);
-        }
+        // loans AutoSync لە ئێرەوە لابرا — handleSave و RealtimeSync ئەمەی دەکەن
+        // AutoSync loans نانێردرێت چونکە localStorage داتای کۆن دەبێت
 
         if (contr.length > 0) {
           var rows4 = [];
