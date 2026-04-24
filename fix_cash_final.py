@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+FILE = r"C:\Users\surface\OneDrive\Desktop\karogroup2\src\RealtimeSync.js"
+
+CORRECT = '''import { useEffect } from "react";
 import { supabase } from "./supabase";
 
 export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCashUpdate, setCashIQD, setCashUSD }) {
@@ -105,3 +107,18 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
 
   return null;
 }
+'''
+
+with open(FILE, "w", encoding="utf-8") as f:
+    f.write(CORRECT)
+
+print("\n" + "="*55)
+print("  کارۆ گروپ — RealtimeSync Final Cash Fix")
+print("="*55)
+print("✅ onCashUpdate prop زیاد کرا")
+print("✅ initialLoad زیاد کرا")
+print("✅ karoDataUpdate event زیاد کرا")
+print("="*55)
+print("✅ RealtimeSync.js پاشەکەوت کرا")
+print("\nئێستا ئەمەی خوارەوە بنووسە:")
+print('  git add . && git commit -m "fix: cash realtime final" && git push')
