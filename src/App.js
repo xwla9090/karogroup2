@@ -1924,7 +1924,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   const [editModalOpen, setEditModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
+  // setLS useEffect لابرا — localStorage ڕاستەوخۆ لە هەر فەنکشنێکدا نوێ دەکرێتەوە
 
   const months = [...new Set(items.map(i => i.date?.slice(0,7)))].sort().reverse();
   
@@ -2433,7 +2433,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   const [search, setSearch] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
 
-  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
+  // setLS useEffect لابرا — localStorage ڕاستەوخۆ لە هەر فەنکشنێکدا نوێ دەکرێتەوە
   useEffect(() => { setLS(PERSONS_KEY, personsList); }, [personsList, PERSONS_KEY]);
 
   useEffect(() => {
@@ -2906,7 +2906,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   const [editPaymentId, setEditPaymentId] = useState(null);
   const [unmarkModal, setUnmarkModal] = useState(null);
 
-  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
+  // setLS useEffect لابرا — localStorage ڕاستەوخۆ لە هەر فەنکشنێکدا نوێ دەکرێتەوە
 
   const totalPrice = Number(form.meters||0) * Number(form.pricePerMeter||0);
   const depositAmt = Math.round(totalPrice * Number(form.depositPercent||0) / 100);
@@ -3572,7 +3572,7 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
   const [search, setSearch] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
 
-  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
+  // setLS useEffect لابرا — localStorage ڕاستەوخۆ لە هەر فەنکشنێکدا نوێ دەکرێتەوە
   useEffect(() => { setLS(PKEY, personsList); }, [personsList, PKEY]);
 
   useEffect(() => {
