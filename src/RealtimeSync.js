@@ -22,7 +22,15 @@ export default function RealtimeSync({ project, onExpUpdate, onLoansUpdate, onCo
 
     const concSub = supabase.channel("conc3_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "concrete", filter: "project=eq." + project }, () => {
-        fetchAndUpdate("concrete", c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }), onConcUpdate);
+        fetchAndUpdate("concrete", c => {
+        let pays = [];
+        try {
+          if (Array.isArray(c.payments)) { pays = c.payments; }
+          else if (typeof c.payments === "string") { pays = JSON.parse(c.payments || "[]"); }
+          else { pays = []; }
+        } catch(e) { pays = []; }
+        return { id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: pays };
+      }, onConcUpdate);
       }).subscribe();
 
     const cashSub = supabase.channel("cash2_" + project)
