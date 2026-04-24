@@ -2883,6 +2883,13 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 // ==================== CONCRETE ====================
 function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
   const KEY = `karo_conc_${pKey}`;
+  const setItemsAndSave = (updater) => {
+    setItems(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      localStorage.setItem(KEY, JSON.stringify(next));
+      return next;
+    });
+  };
   const [items, setItems] = useState(getLS(KEY, []));
   useEffect(() => {
     const handler = () => setItems(getLS(KEY, []));
@@ -2938,7 +2945,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (totalPrice <= 0) return;
     const cur = form.currency || "iqd";
     const item = { ...form, id: genId(), totalPrice, deposit: depositAmt, received: receivedAmt, depositClaimed: false, isReceived: false, marked: false, currency: cur };
-    setItems(prev => [item, ...prev]);
+    setItemsAndSave(prev => [item, ...prev]);
     await supabase.from("concrete").upsert([{
       id: item.id, project: pKey, date: item.date,
       currency: String(item.currency || "iqd"),
@@ -3004,7 +3011,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       isReceived: false,
       depositClaimed: false
     };
-    setItems(prev => prev.map(i => i.id === editItem.id ? updatedItem : i));
+    setItemsAndSave(prev => prev.map(i => i.id === editItem.id ? updatedItem : i));
     await supabase.from("concrete").upsert([{
       id: updatedItem.id, project: pKey, date: updatedItem.date,
       currency: String(updatedItem.currency || "iqd"),
@@ -3035,7 +3042,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       addCashLog(`${t.received} ${t.sidebar.concrete}`, cur === "iqd" ? item.received : 0, cur === "usd" ? item.received : 0);
       const updItem = { ...item, isReceived: true };
       const {error} = await supabase.from("concrete").upsert([{ id: updItem.id, project: pKey, date: updItem.date, currency: String(updItem.currency||"iqd"), meters: Number(updItem.meters||0), pricepermeter: Number(updItem.pricePerMeter||0), totalprice: Number(updItem.totalPrice||0), deposit: Number(updItem.deposit||0), depositpercent: Number(updItem.depositPercent||0), received: Number(updItem.received||0), isreceived: true, depositclaimed: !!updItem.depositClaimed, note: String(updItem.note||""), marked: !!updItem.marked, paidamount: Number(updItem.paidAmount||0), payments: JSON.stringify(updItem.payments||[]) }]); console.log("upsert error:", error);
-      setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
+      setItemsAndSave(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
     }
   };
   const unmarkReceived = async id => {
@@ -3050,7 +3057,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     else { setCashIQD(prev => prev - allPaid); }
     const updItem2 = { ...item, isReceived: false, paidAmount: 0, payments: [] };
     await supabase.from("concrete").upsert([{ id: updItem2.id, project: pKey, date: updItem2.date, currency: String(updItem2.currency||"iqd"), meters: Number(updItem2.meters||0), pricepermeter: Number(updItem2.pricePerMeter||0), totalprice: Number(updItem2.totalPrice||0), deposit: Number(updItem2.deposit||0), depositpercent: Number(updItem2.depositPercent||0), received: Number(updItem2.received||0), isreceived: !!updItem2.isReceived, depositclaimed: !!updItem2.depositClaimed, note: String(updItem2.note||""), marked: !!updItem2.marked, paidamount: Number(updItem2.paidAmount||0), payments: JSON.stringify(updItem2.payments||[]) }]);
-    setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: false, paidAmount: 0, payments: [] } : i));
+    setItemsAndSave(prev => prev.map(i => i.id === id ? { ...i, isReceived: false, paidAmount: 0, payments: [] } : i));
   };
 
 
