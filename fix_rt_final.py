@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+FILE = r"C:\Users\surface\OneDrive\Desktop\karogroup2\src\RealtimeSync.js"
+
+CORRECT = '''import { useEffect } from "react";
 import { supabase } from "./supabase";
 
 export default function RealtimeSync({ project, onExpUpdate, onLoansUpdate, onConcUpdate, onCashUpdate }) {
@@ -54,3 +56,18 @@ export default function RealtimeSync({ project, onExpUpdate, onLoansUpdate, onCo
 
   return null;
 }
+'''
+
+with open(FILE, "w", encoding="utf-8") as f:
+    f.write(CORRECT)
+
+print("\n" + "="*55)
+print("  کارۆ گروپ — RealtimeSync Final Fix")
+print("="*55)
+print("✅ RealtimeSync.js تەواو نووسرایەوە")
+print("✅ loans channel زیاد کرا")
+print("✅ _karoLocal و setTimeout لابران")
+print("✅ channel نازناوەکان نوێ کران (exp3, loans2, conc3, cash2)")
+print("="*55)
+print("\nئێستا ئەمەی خوارەوە بنووسە:")
+print('  git add . && git commit -m "fix: RealtimeSync final" && git push')
