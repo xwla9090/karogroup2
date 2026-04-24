@@ -628,8 +628,10 @@ export default function App() {
   const [exchangeRate, setExchangeRate] = useState(getLS(`karo_rate_${pKey}`, 1500));
   const [cashLog, setCashLog] = useState(getLS(`karo_cashLog_${pKey}`, []));
 
+  const cashRemoteRef = useRef(false);
   useEffect(() => {
     if (!pKey || pKey === "default") return;
+    if (cashRemoteRef.current) { cashRemoteRef.current = false; return; }
     const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
     supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
   }, [cashIQD, cashUSD, exchangeRate, pKey]);
@@ -785,11 +787,15 @@ export default function App() {
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
     onCashUpdate={cash => {
+      cashRemoteRef.current = true;
       setCashIQD(cash.cashiqd || 0);
+      cashRemoteRef.current = true;
       setCashUSD(cash.cashusd || 0);
+      cashRemoteRef.current = true;
       setExchangeRate(cash.exchangerate || 1500);
       localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(cash.cashiqd || 0));
       localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(cash.cashusd || 0));
+      window.dispatchEvent(new Event("karoDataUpdate"));
     }}
   /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
   return <LandingPage {...shared} setLang={setLang} setDark={setDark} onLogoClick={handleLogoClick} />;
