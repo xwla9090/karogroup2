@@ -791,6 +791,7 @@ export default function App() {
         } catch(e) { pays = []; }
         return { id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: pays };
       });
+      window._concLocalUpdate = false;
       localStorage.setItem("karo_conc_" + loggedUser.project, JSON.stringify(mapped));
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
@@ -2899,7 +2900,10 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   };
   const [items, setItems] = useState(getLS(KEY, []));
   useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
+    const handler = () => {
+      if (window._concLocalUpdate) return;
+      setItems(getLS(KEY, []));
+    };
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
   }, [KEY]);
@@ -3084,6 +3088,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const newPaymentObj = { id: genId(), amount: amt, date: date || today(), note: note || "" };
     const newPaymentsList = [...(items.find(i => i.id === id)?.payments || []), newPaymentObj];
     const updatedConc = items.map(i => i.id === id ? { ...i, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList } : i);
+    window._concLocalUpdate = true;
     setItems(updatedConc);
     localStorage.setItem("karo_conc_" + pKey, JSON.stringify(updatedConc));
     const updItem = { ...item, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList };
