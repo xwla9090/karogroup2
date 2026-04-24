@@ -6,18 +6,11 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     if (!project) return;
 
     const fetchAndUpdate = async (table, localKey, mapper) => {
-      if (window._karoLocal) return;
-      await new Promise(r => setTimeout(r, 3000));
-      if (window._karoLocal) return;
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
-        const local = JSON.parse(localStorage.getItem(localKey + project) || "[]");
-        if (JSON.stringify(data.sort((a,b)=>a.id>b.id?1:-1)) !== JSON.stringify(local.sort((a,b)=>a.id>b.id?1:-1))) {
-          localStorage.setItem(localKey + project, JSON.stringify(data.map(mapper)));
-          window.dispatchEvent(new Event("karoDataUpdate"));
-        }
+        localStorage.setItem(localKey + project, JSON.stringify(data.map(mapper)));
+        window.dispatchEvent(new Event("karoDataUpdate"));
       }
-      window._karoLocal = false;
     };
 
     // کاتی کرایەوەی براوزەر — هەموو داتا لە Supabase بخوێنەوە
