@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import AutoSync from "./AutoSync";
 import RealtimeSync from "./RealtimeSync";
 import { supabase } from "./supabase";
@@ -628,13 +628,10 @@ export default function App() {
   const [exchangeRate, setExchangeRate] = useState(getLS(`karo_rate_${pKey}`, 1500));
   const [cashLog, setCashLog] = useState(getLS(`karo_cashLog_${pKey}`, []));
 
-  const cashRemoteRef = useRef(false);
   useEffect(() => {
     if (!pKey || pKey === "default") return;
-    if (cashRemoteRef.current) { cashRemoteRef.current = false; return; }
     const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
     supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
-    // cashRemoteRef براوزەری خۆی ignore دەکات نەک براوزەری دووەم
   }, [cashIQD, cashUSD, exchangeRate, pKey]);
   useEffect(() => {
     if (loggedUser && !loggedUser.isAdmin) {
@@ -783,40 +780,16 @@ export default function App() {
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
     onConcUpdate={data => {
-      const mapped = data.map(c => {
-        let pays = [];
-        try {
-          if (Array.isArray(c.payments)) { pays = c.payments; }
-          else if (typeof c.payments === "string" && c.payments) { pays = JSON.parse(c.payments); }
-        } catch(e) { pays = []; }
-        return { id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: pays };
-      });
-      window._concLocalUpdate = false;
+      const mapped = data.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
       localStorage.setItem("karo_conc_" + loggedUser.project, JSON.stringify(mapped));
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
-    onLoansUpdate={data => {
-      const mapped = data.map(l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }));
-      localStorage.setItem("karo_loans_" + loggedUser.project, JSON.stringify(mapped));
-      window.dispatchEvent(new Event("karoDataUpdate"));
-    }}
-    onLoansUpdate={data => {
-      const mapped = data.map(l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }));
-      localStorage.setItem("karo_loans_" + loggedUser.project, JSON.stringify(mapped));
-      window.dispatchEvent(new Event("karoDataUpdate"));
-    }}
     onCashUpdate={cash => {
-      const newIQD = cash.cashiqd || 0;
-      const newUSD = cash.cashusd || 0;
-      localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(newIQD));
-      localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(newUSD));
-      cashRemoteRef.current = true;
-      setCashIQD(newIQD);
-      cashRemoteRef.current = true;
-      setCashUSD(newUSD);
-      cashRemoteRef.current = true;
+      setCashIQD(cash.cashiqd || 0);
+      setCashUSD(cash.cashusd || 0);
       setExchangeRate(cash.exchangerate || 1500);
-      window.dispatchEvent(new Event("karoDataUpdate"));
+      localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(cash.cashiqd || 0));
+      localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(cash.cashusd || 0));
     }}
   /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
   return <LandingPage {...shared} setLang={setLang} setDark={setDark} onLogoClick={handleLogoClick} />;
@@ -1932,7 +1905,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   const [editModalOpen, setEditModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
-  // setLS useEffect لابرا — localStorage ڕاستەوخۆ لە هەر فەنکشنێکدا نوێ دەکرێتەوە
+  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
 
   const months = [...new Set(items.map(i => i.date?.slice(0,7)))].sort().reverse();
   
@@ -1972,6 +1945,8 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
         addCashLog(`${t.edit} ${t.sidebar.expenses}`, diffIQD, diffUSD);
       }
       setItems(prev => prev.map(i => i.id === editItem.id ? { ...i, ...form } : i));
+      window._karoLocal = true;
+      setTimeout(() => { window._karoLocal = false; }, 10000);
       await supabase.from("expenses").upsert([{ id: editItem.id, project: pKey, date: form.date, amountiqd: Number(form.amountIQD||0), amountusd: Number(form.amountUSD||0), receiptno: String(form.receiptNo||""), note: String(form.note||""), marked: !!form.marked }]);
     window.dispatchEvent(new Event("karoLocalChange"));
       setEditModalOpen(false);
@@ -1980,6 +1955,8 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       if (usd > 0 && cashUSD < usd) { setAlert(t.noBalance); return; }
       const newItem = { ...form, id: genId(), marked: false };
       setItems(prev => [newItem, ...prev]);
+      window._karoLocal = true;
+      setTimeout(() => { window._karoLocal = false; }, 10000);
       await supabase.from("expenses").upsert([{ id: newItem.id, project: pKey, date: newItem.date, amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0), receiptno: String(newItem.receiptNo||""), note: String(newItem.note||""), marked: false }]);
       if (iqd > 0) setCashIQD(prev => prev - iqd);
       if (usd > 0) setCashUSD(prev => prev - usd);
@@ -2002,6 +1979,8 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       addCashLog(`${t.delete} ${t.sidebar.expenses}`, Number(item.amountIQD||0), Number(item.amountUSD||0)); 
     }
     setItems(prev => prev.filter(i => i.id !== id));
+    window._karoLocal = true;
+    setTimeout(() => { window._karoLocal = false; }, 10000);
     await supabase.from("expenses").delete().eq("id", id);
     setConfirmDel(null);
   };
@@ -2441,7 +2420,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   const [search, setSearch] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
 
-  // setLS useEffect لابرا — localStorage ڕاستەوخۆ لە هەر فەنکشنێکدا نوێ دەکرێتەوە
+  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
   useEffect(() => { setLS(PERSONS_KEY, personsList); }, [personsList, PERSONS_KEY]);
 
   useEffect(() => {
@@ -2891,19 +2870,9 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 // ==================== CONCRETE ====================
 function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
   const KEY = `karo_conc_${pKey}`;
-  const setItemsAndSave = (updater) => {
-    setItems(prev => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      localStorage.setItem(KEY, JSON.stringify(next));
-      return next;
-    });
-  };
   const [items, setItems] = useState(getLS(KEY, []));
   useEffect(() => {
-    const handler = () => {
-      if (window._concLocalUpdate) return;
-      setItems(getLS(KEY, []));
-    };
+    const handler = () => setItems(getLS(KEY, []));
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
   }, [KEY]);
@@ -2924,7 +2893,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
   const [editPaymentId, setEditPaymentId] = useState(null);
   const [unmarkModal, setUnmarkModal] = useState(null);
 
-  // setLS useEffect لابرا — localStorage ڕاستەوخۆ لە هەر فەنکشنێکدا نوێ دەکرێتەوە
+  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
 
   const totalPrice = Number(form.meters||0) * Number(form.pricePerMeter||0);
   const depositAmt = Math.round(totalPrice * Number(form.depositPercent||0) / 100);
@@ -2956,7 +2925,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (totalPrice <= 0) return;
     const cur = form.currency || "iqd";
     const item = { ...form, id: genId(), totalPrice, deposit: depositAmt, received: receivedAmt, depositClaimed: false, isReceived: false, marked: false, currency: cur };
-    setItemsAndSave(prev => [item, ...prev]);
+    setItems(prev => [item, ...prev]);
+    window._karoLocal = true;
     await supabase.from("concrete").upsert([{
       id: item.id, project: pKey, date: item.date,
       currency: String(item.currency || "iqd"),
@@ -2970,6 +2940,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       note: String(item.note || ""), marked: false,
       paidamount: 0, payments: "[]"
     }]);
+    window._karoLocal = false;
     resetForm();
     setShowForm(false);
   };
@@ -3022,7 +2993,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       isReceived: false,
       depositClaimed: false
     };
-    setItemsAndSave(prev => prev.map(i => i.id === editItem.id ? updatedItem : i));
+    setItems(prev => prev.map(i => i.id === editItem.id ? updatedItem : i));
+    window._karoLocal = true;
     await supabase.from("concrete").upsert([{
       id: updatedItem.id, project: pKey, date: updatedItem.date,
       currency: String(updatedItem.currency || "iqd"),
@@ -3039,6 +3011,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       paidamount: Number(updatedItem.paidAmount || 0),
       payments: JSON.stringify(updatedItem.payments || [])
     }]);
+    window._karoLocal = false;
     setEditModalOpen(false);
     resetForm();
   };
@@ -3050,10 +3023,12 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       const cur = item.currency || "iqd";
       if (cur === "usd") { setCashUSD(prev => prev + item.received); }
       else { setCashIQD(prev => prev + item.received); }
+      window._karoLocal = true;
       addCashLog(`${t.received} ${t.sidebar.concrete}`, cur === "iqd" ? item.received : 0, cur === "usd" ? item.received : 0);
       const updItem = { ...item, isReceived: true };
       const {error} = await supabase.from("concrete").upsert([{ id: updItem.id, project: pKey, date: updItem.date, currency: String(updItem.currency||"iqd"), meters: Number(updItem.meters||0), pricepermeter: Number(updItem.pricePerMeter||0), totalprice: Number(updItem.totalPrice||0), deposit: Number(updItem.deposit||0), depositpercent: Number(updItem.depositPercent||0), received: Number(updItem.received||0), isreceived: true, depositclaimed: !!updItem.depositClaimed, note: String(updItem.note||""), marked: !!updItem.marked, paidamount: Number(updItem.paidAmount||0), payments: JSON.stringify(updItem.payments||[]) }]); console.log("upsert error:", error);
-      setItemsAndSave(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
+      setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: true } : i));
+      window._karoLocal = false;
     }
   };
   const unmarkReceived = async id => {
@@ -3066,9 +3041,11 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const allPaid = (item2?.payments||[]).reduce((a,b) => a + Number(b.amount||0), 0);
     if (cur2 === "usd") { setCashUSD(prev => prev - allPaid); }
     else { setCashIQD(prev => prev - allPaid); }
+    window._karoLocal = true;
     const updItem2 = { ...item, isReceived: false, paidAmount: 0, payments: [] };
     await supabase.from("concrete").upsert([{ id: updItem2.id, project: pKey, date: updItem2.date, currency: String(updItem2.currency||"iqd"), meters: Number(updItem2.meters||0), pricepermeter: Number(updItem2.pricePerMeter||0), totalprice: Number(updItem2.totalPrice||0), deposit: Number(updItem2.deposit||0), depositpercent: Number(updItem2.depositPercent||0), received: Number(updItem2.received||0), isreceived: !!updItem2.isReceived, depositclaimed: !!updItem2.depositClaimed, note: String(updItem2.note||""), marked: !!updItem2.marked, paidamount: Number(updItem2.paidAmount||0), payments: JSON.stringify(updItem2.payments||[]) }]);
-    setItemsAndSave(prev => prev.map(i => i.id === id ? { ...i, isReceived: false, paidAmount: 0, payments: [] } : i));
+    setItems(prev => prev.map(i => i.id === id ? { ...i, isReceived: false, paidAmount: 0, payments: [] } : i));
+    window._karoLocal = false;
   };
 
 
@@ -3084,15 +3061,15 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const remaining = Math.max(0, Number(item.received||0) - newPaid);
     if (cur === "usd") { setCashUSD(prev => prev + amt); }
     else { setCashIQD(prev => prev + amt); }
+    window._karoLocal = true;
     addCashLog("payment: " + amt, cur === "iqd" ? amt : 0, cur === "usd" ? amt : 0);
     const newPaymentObj = { id: genId(), amount: amt, date: date || today(), note: note || "" };
     const newPaymentsList = [...(items.find(i => i.id === id)?.payments || []), newPaymentObj];
-    const updatedConc = items.map(i => i.id === id ? { ...i, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList } : i);
-    window._concLocalUpdate = true;
-    setItems(updatedConc);
-    localStorage.setItem("karo_conc_" + pKey, JSON.stringify(updatedConc));
+    setItems(prev => prev.map(i => i.id === id ? { ...i, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList } : i));
+    setItems(prev => prev.map(i => i.id === id ? { ...i, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList } : i));
     const updItem = { ...item, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList };
     await supabase.from("concrete").upsert([{ id: updItem.id, project: pKey, date: updItem.date, currency: String(updItem.currency||"iqd"), meters: Number(updItem.meters||0), pricepermeter: Number(updItem.pricePerMeter||0), totalprice: Number(updItem.totalPrice||0), deposit: Number(updItem.deposit||0), depositpercent: Number(updItem.depositPercent||0), received: Number(updItem.received||0), isreceived: !!updItem.isReceived, depositclaimed: !!updItem.depositClaimed, note: String(updItem.note||""), marked: !!updItem.marked, paidamount: Number(updItem.paidAmount||0), payments: JSON.stringify(updItem.payments||[]) }]);
+    window._karoLocal = false;
     setPaymentAmount("");
   };
 
@@ -3107,13 +3084,15 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       const cur = item.currency || "iqd";
       if (cur === "usd") { setCashUSD(prev => prev + item.deposit); }
       else { setCashIQD(prev => prev + item.deposit); }
+      window._karoLocal = true;
       addCashLog(`${t.claimDeposit}: ${item.deposit}`, cur === "iqd" ? item.deposit : 0, cur === "usd" ? item.deposit : 0);
       const updItem = { ...item, depositClaimed: true };
       await supabase.from("concrete").upsert([{ id: updItem.id, project: pKey, date: updItem.date, currency: String(updItem.currency||"iqd"), meters: Number(updItem.meters||0), pricepermeter: Number(updItem.pricePerMeter||0), totalprice: Number(updItem.totalPrice||0), deposit: Number(updItem.deposit||0), depositpercent: Number(updItem.depositPercent||0), received: Number(updItem.received||0), isreceived: !!updItem.isReceived, depositclaimed: true, note: String(updItem.note||""), marked: !!updItem.marked, paidamount: Number(updItem.paidAmount||0), payments: JSON.stringify(updItem.payments||[]) }]);
       setItems(prev => prev.map(i => i.id === id ? { ...i, depositClaimed: true } : i));
+      window._karoLocal = false;
     }
   };
-  const editPayment = async (itemId, paymentId, amount, date, note) => {
+  const editPayment = (itemId, paymentId, amount, date, note) => {
     const item = items.find(i => i.id === itemId);
     if (!item) return;
     const amt = Number(amount||0);
@@ -3128,31 +3107,15 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     else { setCashIQD(prev => prev + diff); }
     const newPayments = (item.payments||[]).map(p => p.id === paymentId ? { ...p, amount: amt, date: date||today(), note: note||"" } : p);
     const newPaid = newPayments.reduce((a,b) => a + Number(b.amount||0), 0);
-    const updItem = { ...item, payments: newPayments, paidAmount: newPaid, isReceived: newPaid >= Number(item.received||0) };
-    setItems(prev => prev.map(i => i.id === itemId ? updItem : i));
-    await supabase.from("concrete").upsert([{
-      id: updItem.id, project: pKey, date: updItem.date,
-      currency: String(updItem.currency||"iqd"),
-      meters: Number(updItem.meters||0),
-      pricepermeter: Number(updItem.pricePerMeter||0),
-      totalprice: Number(updItem.totalPrice||0),
-      deposit: Number(updItem.deposit||0),
-      depositpercent: Number(updItem.depositPercent||0),
-      received: Number(updItem.received||0),
-      isreceived: !!updItem.isReceived,
-      depositclaimed: !!updItem.depositClaimed,
-      note: String(updItem.note||""),
-      marked: !!updItem.marked,
-      paidamount: Number(updItem.paidAmount||0),
-      payments: JSON.stringify(updItem.payments||[])
-    }]);
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, payments: newPayments, paidAmount: newPaid, isReceived: newPaid >= Number(i.received||0) } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
     setEditPaymentId(null);
     setPaymentAmount("");
     setPaymentDate(today());
     setPaymentNote("");
   };
 
-  const deletePayment = async (itemId, paymentId) => {
+  const deletePayment = (itemId, paymentId) => {
     const item = items.find(i => i.id === itemId);
     if (!item) return;
     const payment = (item.payments||[]).find(p => p.id === paymentId);
@@ -3163,51 +3126,20 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     else { setCashIQD(prev => prev - amt); }
     const newPayments = (item.payments||[]).filter(p => p.id !== paymentId);
     const newPaid = newPayments.reduce((a,b) => a + Number(b.amount||0), 0);
-    const updItem = { ...item, payments: newPayments, paidAmount: newPaid, isReceived: false };
-    setItems(prev => prev.map(i => i.id === itemId ? updItem : i));
-    await supabase.from("concrete").upsert([{
-      id: updItem.id, project: pKey, date: updItem.date,
-      currency: String(updItem.currency||"iqd"),
-      meters: Number(updItem.meters||0),
-      pricepermeter: Number(updItem.pricePerMeter||0),
-      totalprice: Number(updItem.totalPrice||0),
-      deposit: Number(updItem.deposit||0),
-      depositpercent: Number(updItem.depositPercent||0),
-      received: Number(updItem.received||0),
-      isreceived: false,
-      depositclaimed: !!updItem.depositClaimed,
-      note: String(updItem.note||""),
-      marked: !!updItem.marked,
-      paidamount: Number(updItem.paidAmount||0),
-      payments: JSON.stringify(updItem.payments||[])
-    }]);
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, payments: newPayments, paidAmount: newPaid, isReceived: false } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
   };
 
-  const unclaimDeposit = async id => {
+  const unclaimDeposit = id => {
     if (isFrozen) { setAlert(t.frozen); return; }
     const item = items.find(i => i.id === id);
     if (!item || !item.depositClaimed) return;
     const cur = item.currency || "iqd";
     if (cur === "usd") { setCashUSD(prev => prev - Number(item.deposit||0)); }
     else { setCashIQD(prev => prev - Number(item.deposit||0)); }
-    const updItem = { ...item, depositClaimed: false };
-    setItems(prev => prev.map(i => i.id === id ? updItem : i));
-    await supabase.from("concrete").upsert([{
-      id: updItem.id, project: pKey, date: updItem.date,
-      currency: String(updItem.currency||"iqd"),
-      meters: Number(updItem.meters||0),
-      pricepermeter: Number(updItem.pricePerMeter||0),
-      totalprice: Number(updItem.totalPrice||0),
-      deposit: Number(updItem.deposit||0),
-      depositpercent: Number(updItem.depositPercent||0),
-      received: Number(updItem.received||0),
-      isreceived: !!updItem.isReceived,
-      depositclaimed: false,
-      note: String(updItem.note||""),
-      marked: !!updItem.marked,
-      paidamount: Number(updItem.paidAmount||0),
-      payments: JSON.stringify(updItem.payments||[])
-    }]);
+    setItems(prev => prev.map(i => i.id === id ? { ...i, depositClaimed: false } : i));
+    window.dispatchEvent(new Event("karoLocalChange"));
+    window.dispatchEvent(new Event("karoLocalChange"));
   };
 
 
@@ -3227,9 +3159,11 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
         if (cur === "usd") setCashUSD(prev => prev - Number(item.deposit||0));
         else setCashIQD(prev => prev - Number(item.deposit||0));
       }
+    window._karoLocal = true;
     }
     setItems(prev => prev.filter(i => i.id !== id));
     await supabase.from("concrete").delete().eq("id", id);
+    window._karoLocal = false;
     setConfirmDel(null);
   };
 
@@ -3591,7 +3525,7 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
   const [search, setSearch] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
 
-  // setLS useEffect لابرا — localStorage ڕاستەوخۆ لە هەر فەنکشنێکدا نوێ دەکرێتەوە
+  useEffect(() => { setLS(KEY, items); }, [items, KEY]);
   useEffect(() => { setLS(PKEY, personsList); }, [personsList, PKEY]);
 
   useEffect(() => {
