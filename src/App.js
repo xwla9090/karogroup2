@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import AutoSync from "./AutoSync";
 import RealtimeSync from "./RealtimeSync";
 import { supabase } from "./supabase";
@@ -628,11 +628,11 @@ export default function App() {
   const [exchangeRate, setExchangeRate] = useState(getLS(`karo_rate_${pKey}`, 1500));
   const [cashLog, setCashLog] = useState(getLS(`karo_cashLog_${pKey}`, []));
 
-  const cashSaveRef = useRef(false);
   useEffect(() => {
     if (!pKey || pKey === "default") return;
-    if (cashSaveRef.current) { cashSaveRef.current = false; return; }
+    if (window._karoIgnore && window._karoIgnore["cash"]) return;
     const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
+    if (window._karoIgnore) window._karoIgnore("cash", 4000);
     supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
   }, [cashIQD, cashUSD, exchangeRate, pKey]);
   useEffect(() => {
@@ -792,11 +792,9 @@ export default function App() {
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
     onCashUpdate={cash => {
-      cashSaveRef.current = true;
+      if (window._karoIgnore) window._karoIgnore("cash", 4000);
       setCashIQD(cash.cashiqd || 0);
-      cashSaveRef.current = true;
       setCashUSD(cash.cashusd || 0);
-      cashSaveRef.current = true;
       setExchangeRate(cash.exchangerate || 1500);
       localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(cash.cashiqd || 0));
       localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(cash.cashusd || 0));
@@ -2529,24 +2527,15 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       setCashUSD(p => p + diffUSD);
       addCashLog(`${t.edit} ${form.type==="take"?t.loanTake:t.loanGive}: ${pName}`, diffIQD, diffUSD);
       
-      const updItem = {
-        ...editItem,
-        type: form.type,
-        personName: pName,
-        amountIQD: iqd,
-        amountUSD: usd,
-        note: form.note || "",
-        date: form.date,
-      };
-      const updatedLoans2 = items.map(i => i.id===editItem.id ? updItem : i);
-      setItems(updatedLoans2);
-      localStorage.setItem('karo_loans_' + pKey, JSON.stringify(updatedLoans2));
+      const updItem = {...editItem, ...form, personName: pName};
+      setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
+      if (window._karoIgnore) window._karoIgnore("loans", 4000);
       await supabase.from("loans").upsert([{
         id: updItem.id, project: pKey,
         type: updItem.type,
-        personname: pName,
-        amountiqd: iqd,
-        amountusd: usd,
+        personname: String(updItem.personName || ""),
+        amountiqd: Number(updItem.amountIQD || 0),
+        amountusd: Number(updItem.amountUSD || 0),
         note: String(updItem.note || ""),
         date: updItem.date,
         returned: !!updItem.returned,
@@ -2564,26 +2553,15 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.loanTake}: ${pName}`, iqd, usd);
       }
-      const newItem = {
-        id: genId(),
-        type: form.type,
-        personName: pName,
-        amountIQD: iqd,
-        amountUSD: usd,
-        note: form.note || "",
-        date: form.date,
-        returned: false,
-        marked: false
-      };
-      const updatedLoans = [newItem, ...items];
-      setItems(updatedLoans);
-      localStorage.setItem("karo_loans_" + pKey, JSON.stringify(updatedLoans));
+      const newItem = {...form, personName: pName, id: genId(), marked: false, returned: false};
+      setItems(prev => [newItem, ...prev]);
+      if (window._karoIgnore) window._karoIgnore("loans", 4000);
       await supabase.from("loans").upsert([{
         id: newItem.id, project: pKey,
         type: newItem.type,
-        personname: pName,
-        amountiqd: iqd,
-        amountusd: usd,
+        personname: String(newItem.personName || ""),
+        amountiqd: Number(newItem.amountIQD || 0),
+        amountusd: Number(newItem.amountUSD || 0),
         note: String(newItem.note || ""),
         date: newItem.date,
         returned: false,
@@ -2619,10 +2597,11 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 
     const updItem = { ...item, returned: true, amountIQD: 0, amountUSD: 0 };
     setItems(prev => prev.map(i => i.id === id ? updItem : i));
+    if (window._karoIgnore) window._karoIgnore("loans", 4000);
     await supabase.from("loans").upsert([{
       id: updItem.id, project: pKey,
       type: updItem.type,
-      personname: pName,
+      personname: String(updItem.personName || ""),
       amountiqd: 0,
       amountusd: 0,
       note: String(updItem.note || ""),
@@ -2652,6 +2631,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       }
     }
     setItems(prev => prev.filter(i=>i.id!==id));
+    if (window._karoIgnore) window._karoIgnore("loans", 4000);
     await supabase.from("loans").delete().eq("id", id);
     setConfirmDel(null);
   };
@@ -3732,22 +3712,15 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.edit} ${t.addMoney}: ${pName}`, iqd, usd); 
       }
-      const updItem = {
-        ...editItem,
-        type: form.type,
-        personName: pName,
-        amountIQD: iqd,
-        amountUSD: usd,
-        note: form.note || "",
-        date: form.date,
-      };
+      const updItem = {...editItem, ...form, personName: pName};
       setItems(prev => prev.map(i => i.id===editItem.id ? updItem : i));
+      if (window._karoIgnore) window._karoIgnore("loans", 4000);
       await supabase.from("loans").upsert([{
         id: updItem.id, project: pKey,
         type: updItem.type,
-        personname: pName,
-        amountiqd: iqd,
-        amountusd: usd,
+        personname: String(updItem.personName || ""),
+        amountiqd: Number(updItem.amountIQD || 0),
+        amountusd: Number(updItem.amountUSD || 0),
         note: String(updItem.note || ""),
         date: updItem.date,
         returned: !!updItem.returned,
