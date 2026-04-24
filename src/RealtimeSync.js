@@ -13,27 +13,26 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       }
     };
 
-    // کاتی کرایەوەی براوزەر — تەنها ئەگەر localStorage بەتاڵە داتا بخوێنەوە
+    // کاتی کرایەوەی براوزەر — هەموو جار conc و exp بخوێنەوە، cash تەنها ئەگەر بەتاڵ بوو
     const initialLoad = async () => {
-      const localConc = localStorage.getItem("karo_conc_" + project);
       const localCash = localStorage.getItem("karo_cashIQD_" + project);
-      
-      // ئەگەر داتا هەیە، تەنها cash نوێ بکەرەوە نەک conc
-      if (localCash && localConc) return;
 
       const concMapper = c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: (() => { try { return Array.isArray(c.payments) ? c.payments : JSON.parse(c.payments||"[]"); } catch(e) { return []; } })() });
       const expMapper = e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked });
 
-      const [expRes, concRes, cashRes] = await Promise.all([
+      const queries = [
         supabase.from("expenses").select("*").eq("project", project),
         supabase.from("concrete").select("*").eq("project", project),
-        supabase.from("cash").select("*").eq("project", project).single()
-      ]);
+      ];
+      if (!localCash) queries.push(supabase.from("cash").select("*").eq("project", project).single());
+
+      const results = await Promise.all(queries);
+      const [expRes, concRes, cashRes] = results;
 
       let changed = false;
-      if (expRes.data && !localStorage.getItem("karo_exp_" + project)) { localStorage.setItem("karo_exp_" + project, JSON.stringify(expRes.data.map(expMapper))); changed = true; }
-      if (concRes.data && !localConc) { localStorage.setItem("karo_conc_" + project, JSON.stringify(concRes.data.map(concMapper))); changed = true; }
-      if (cashRes.data && !localCash) {
+      if (expRes.data) { localStorage.setItem("karo_exp_" + project, JSON.stringify(expRes.data.map(expMapper))); changed = true; }
+      if (concRes.data) { localStorage.setItem("karo_conc_" + project, JSON.stringify(concRes.data.map(concMapper))); changed = true; }
+      if (cashRes && cashRes.data && !localCash) {
         localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(cashRes.data.cashiqd || 0));
         localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(cashRes.data.cashusd || 0));
         if (setCashIQD) setCashIQD(cashRes.data.cashiqd || 0);
