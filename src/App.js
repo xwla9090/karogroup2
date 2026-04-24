@@ -1946,7 +1946,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       }
       setItems(prev => prev.map(i => i.id === editItem.id ? { ...i, ...form } : i));
       window._karoLocal = true;
-      setTimeout(() => { window._karoLocal = false; }, 10000);
+      setTimeout(() => { window._karoLocal = false; }, 2000);
       await supabase.from("expenses").upsert([{ id: editItem.id, project: pKey, date: form.date, amountiqd: Number(form.amountIQD||0), amountusd: Number(form.amountUSD||0), receiptno: String(form.receiptNo||""), note: String(form.note||""), marked: !!form.marked }]);
     window.dispatchEvent(new Event("karoLocalChange"));
       setEditModalOpen(false);
@@ -1956,7 +1956,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       const newItem = { ...form, id: genId(), marked: false };
       setItems(prev => [newItem, ...prev]);
       window._karoLocal = true;
-      setTimeout(() => { window._karoLocal = false; }, 10000);
+      setTimeout(() => { window._karoLocal = false; }, 2000);
       await supabase.from("expenses").upsert([{ id: newItem.id, project: pKey, date: newItem.date, amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0), receiptno: String(newItem.receiptNo||""), note: String(newItem.note||""), marked: false }]);
       if (iqd > 0) setCashIQD(prev => prev - iqd);
       if (usd > 0) setCashUSD(prev => prev - usd);
@@ -1980,7 +1980,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     }
     setItems(prev => prev.filter(i => i.id !== id));
     window._karoLocal = true;
-    setTimeout(() => { window._karoLocal = false; }, 10000);
+    setTimeout(() => { window._karoLocal = false; }, 2000);
     await supabase.from("expenses").delete().eq("id", id);
     setConfirmDel(null);
   };
