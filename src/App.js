@@ -786,6 +786,11 @@ export default function App() {
       localStorage.setItem("karo_conc_" + loggedUser.project, JSON.stringify(mapped));
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
+    onLoansUpdate={data => {
+      const mapped = data.map(l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }));
+      localStorage.setItem("karo_loans_" + loggedUser.project, JSON.stringify(mapped));
+      window.dispatchEvent(new Event("karoDataUpdate"));
+    }}
     onCashUpdate={cash => {
       cashRemoteRef.current = true;
       setCashIQD(cash.cashiqd || 0);
