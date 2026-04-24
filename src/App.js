@@ -2975,6 +2975,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const newDeposit = Math.round(newTotalPrice * Number(form.depositPercent||0) / 100);
     const newReceived = newTotalPrice - newDeposit;
 
+    // کۆنەکەی لادەبە لە قاسە
     if (editItem.isReceived) {
       if (editItem.currency === "usd") setCashUSD(prev => prev - Number(editItem.received||0));
       else setCashIQD(prev => prev - Number(editItem.received||0));
@@ -2982,6 +2983,12 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (editItem.depositClaimed) {
       if (editItem.currency === "usd") setCashUSD(prev => prev - Number(editItem.deposit||0));
       else setCashIQD(prev => prev - Number(editItem.deposit||0));
+    }
+    // پارەی وەرگیراوی کۆن لادەبە
+    const oldPaid = Number(editItem.paidAmount||0);
+    if (oldPaid > 0) {
+      if (editItem.currency === "usd") setCashUSD(prev => prev - oldPaid);
+      else setCashIQD(prev => prev - oldPaid);
     }
 
     const updatedItem = {
@@ -2992,7 +2999,9 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       received: newReceived,
       currency: cur,
       isReceived: false,
-      depositClaimed: false
+      depositClaimed: false,
+      paidAmount: 0,
+      payments: []
     };
     setItems(prev => prev.map(i => i.id === editItem.id ? updatedItem : i));
     window._karoLocal = true;
