@@ -2475,7 +2475,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -3573,7 +3573,7 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
