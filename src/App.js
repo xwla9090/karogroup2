@@ -3217,16 +3217,22 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       if (item.isReceived) {
         if (cur === "usd") setCashUSD(prev => prev - Number(item.received||0));
         else setCashIQD(prev => prev - Number(item.received||0));
+        addCashLog(`${t.delete} ${t.sidebar.concrete}`, cur==="iqd"?-Number(item.received||0):0, cur==="usd"?-Number(item.received||0):0);
       }
       if (item.depositClaimed) {
         if (cur === "usd") setCashUSD(prev => prev - Number(item.deposit||0));
         else setCashIQD(prev => prev - Number(item.deposit||0));
+        addCashLog(`${t.delete} ${t.claimDeposit}`, cur==="iqd"?-Number(item.deposit||0):0, cur==="usd"?-Number(item.deposit||0):0);
       }
-    window._karoLocal = true;
+      const paidAmt = Number(item.paidAmount||0);
+      if (paidAmt > 0 && !item.isReceived) {
+        if (cur === "usd") setCashUSD(prev => prev - paidAmt);
+        else setCashIQD(prev => prev - paidAmt);
+        addCashLog(`${t.delete} payment`, cur==="iqd"?-paidAmt:0, cur==="usd"?-paidAmt:0);
+      }
     }
     setItems(prev => prev.filter(i => i.id !== id));
     await supabase.from("concrete").delete().eq("id", id);
-    window._karoLocal = false;
     setConfirmDel(null);
   };
 
