@@ -56,6 +56,7 @@ export default function RealtimeSync({ project, setCashIQD, setCashUSD }) {
           localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(newData.cashusd || 0));
           if (setCashIQD) setCashIQD(newData.cashiqd || 0);
           if (setCashUSD) setCashUSD(newData.cashusd || 0);
+          window.dispatchEvent(new Event("karoDataUpdate"));
         }
 
         if (newData.cashlog) {
