@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import AutoSync from "./AutoSync";
 import RealtimeSync from "./RealtimeSync";
 import { supabase } from "./supabase";
@@ -628,8 +628,10 @@ export default function App() {
   const [exchangeRate, setExchangeRate] = useState(getLS(`karo_rate_${pKey}`, 1500));
   const [cashLog, setCashLog] = useState(getLS(`karo_cashLog_${pKey}`, []));
 
+  const cashRemoteRef = useRef(false);
   useEffect(() => {
     if (!pKey || pKey === "default") return;
+    if (cashRemoteRef.current) { cashRemoteRef.current = false; return; }
     const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
     supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
   }, [cashIQD, cashUSD, exchangeRate, pKey]);
@@ -779,17 +781,30 @@ export default function App() {
       localStorage.setItem("karo_exp_" + loggedUser.project, JSON.stringify(mapped));
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
+    onLoansUpdate={data => {
+      const mapped = data.map(l => ({ id: l.id, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, date: l.date, returned: l.returned, marked: l.marked }));
+      localStorage.setItem("karo_loans_" + loggedUser.project, JSON.stringify(mapped));
+      window.dispatchEvent(new Event("karoDataUpdate"));
+    }}
     onConcUpdate={data => {
-      const mapped = data.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
+      const mapped = data.map(c => {
+        let pays = [];
+        try { pays = Array.isArray(c.payments) ? c.payments : JSON.parse(c.payments||"[]"); } catch(e) { pays = []; }
+        return { id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: pays };
+      });
       localStorage.setItem("karo_conc_" + loggedUser.project, JSON.stringify(mapped));
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
     onCashUpdate={cash => {
+      cashRemoteRef.current = true;
       setCashIQD(cash.cashiqd || 0);
+      cashRemoteRef.current = true;
       setCashUSD(cash.cashusd || 0);
+      cashRemoteRef.current = true;
       setExchangeRate(cash.exchangerate || 1500);
       localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(cash.cashiqd || 0));
       localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(cash.cashusd || 0));
+      window.dispatchEvent(new Event("karoDataUpdate"));
     }}
   /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
   return <LandingPage {...shared} setLang={setLang} setDark={setDark} onLogoClick={handleLogoClick} />;
@@ -2424,6 +2439,12 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   useEffect(() => { setLS(PERSONS_KEY, personsList); }, [personsList, PERSONS_KEY]);
 
   useEffect(() => {
+    const handler = () => { setItems(getLS(KEY, [])); };
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
+
+  useEffect(() => {
     const namesFromItems = [...new Set(items.map(i => i.personName).filter(name => name && name.trim() !== ""))];
     const merged = [...new Set([...personsList, ...namesFromItems])];
     if (merged.length !== personsList.length) setPersonsList(merged);
@@ -2514,7 +2535,16 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.loanTake}: ${pName}`, iqd, usd);
       }
-      setItems(prev => [{...form, personName: pName, id: genId(), marked: false, returned: false}, ...prev]);
+      const newLoan = {...form, personName: pName, id: genId(), marked: false, returned: false};
+      const updLoans = [newLoan, ...items];
+      setItems(updLoans);
+      localStorage.setItem("karo_loans_" + pKey, JSON.stringify(updLoans));
+      await supabase.from("loans").upsert([{
+        id: newLoan.id, project: pKey, type: newLoan.type,
+        personname: pName, amountiqd: iqd, amountusd: usd,
+        note: String(newLoan.note||""), date: newLoan.date,
+        returned: false, marked: false
+      }]);
       setShowForm(false);
     }
     resetForm(); 
