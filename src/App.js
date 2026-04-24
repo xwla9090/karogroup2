@@ -2940,7 +2940,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       note: String(item.note || ""), marked: false,
       paidamount: 0, payments: "[]"
     }]);
-    window._karoLocal = false;
+    setTimeout(() => { window._karoLocal = false; }, 2000);
     resetForm();
     setShowForm(false);
   };
@@ -3163,7 +3163,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       paidamount: Number(updItem.paidAmount||0),
       payments: JSON.stringify(updItem.payments||[])
     }]);
-    window._karoLocal = false;
+    setTimeout(() => { window._karoLocal = false; }, 2000);
   };
 
   const unclaimDeposit = async id => {
