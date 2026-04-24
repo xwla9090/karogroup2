@@ -783,7 +783,14 @@ export default function App() {
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
     onConcUpdate={data => {
-      const mapped = data.map(c => { let pays = []; try { pays = JSON.parse(c.payments||"[]"); } catch(e) { pays = []; } return { id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: pays }; });
+      const mapped = data.map(c => {
+        let pays = [];
+        try {
+          if (Array.isArray(c.payments)) { pays = c.payments; }
+          else if (typeof c.payments === "string" && c.payments) { pays = JSON.parse(c.payments); }
+        } catch(e) { pays = []; }
+        return { id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: pays };
+      });
       localStorage.setItem("karo_conc_" + loggedUser.project, JSON.stringify(mapped));
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
