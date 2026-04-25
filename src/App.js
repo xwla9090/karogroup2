@@ -628,19 +628,27 @@ export default function App() {
   const [exchangeRate, setExchangeRate] = useState(getLS(`karo_rate_${pKey}`, 1500));
   const [cashLog, setCashLog] = useState(getLS(`karo_cashLog_${pKey}`, []));
 
-  const cashRemoteRef = useRef(false);
+  const cashUpdatedByMe = useRef(false);
   useEffect(() => {
     const cashHandler = () => {
       const newIQD = JSON.parse(localStorage.getItem("karo_cashIQD_" + pKey) || "0");
       const newUSD = JSON.parse(localStorage.getItem("karo_cashUSD_" + pKey) || "0");
-      cashRemoteRef.current = true;
+      // ئەم event لە براوزەری دیکەوە هات — ئەم براوزەرە گۆڕیی نەکردووە
+      cashUpdatedByMe.current = false;
       setCashIQD(newIQD);
-      cashRemoteRef.current = true;
       setCashUSD(newUSD);
     };
     window.addEventListener("karoDataUpdate", cashHandler);
     return () => window.removeEventListener("karoDataUpdate", cashHandler);
   }, [pKey]);
+  useEffect(() => {
+    if (!pKey || pKey === "default") return;
+    // تەنها ئەگەر ئەم براوزەرە خۆی گۆڕی Supabase نوێ بکە
+    if (!cashUpdatedByMe.current) return;
+    cashUpdatedByMe.current = false;
+    const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
+    supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
+  }, [cashIQD, cashUSD, exchangeRate, pKey]);
   useEffect(() => {
     if (loggedUser && !loggedUser.isAdmin) {
       const userMessages = messages.filter(m => 
@@ -671,11 +679,9 @@ export default function App() {
           if (cashData && cashData[0]) {
             localStorage.setItem("karo_cashIQD_" + pk, JSON.stringify(cashData[0].cashiqd || 0));
             localStorage.setItem("karo_cashUSD_" + pk, JSON.stringify(cashData[0].cashusd || 0));
-            cashRemoteRef.current = true;
+            cashUpdatedByMe.current = false;
             setCashIQD(cashData[0].cashiqd || 0);
-            cashRemoteRef.current = true;
             setCashUSD(cashData[0].cashusd || 0);
-            cashRemoteRef.current = true;
             setExchangeRate(cashData[0].exchangerate || 1500);
             if (cashData[0].cashlog) {
               const remotelog = JSON.parse(cashData[0].cashlog || "[]");
@@ -804,13 +810,12 @@ export default function App() {
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
     onCashUpdate={cash => {
-      cashRemoteRef.current = true;
+      // براوزەری دیکە گۆڕیی — ئەم براوزەرە Supabase نوێ ناکات
+      cashUpdatedByMe.current = false;
       localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(cash.cashiqd || 0));
       localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(cash.cashusd || 0));
       setCashIQD(cash.cashiqd || 0);
-      cashRemoteRef.current = true;
       setCashUSD(cash.cashusd || 0);
-      cashRemoteRef.current = true;
       setExchangeRate(cash.exchangerate || 1500);
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
@@ -1963,6 +1968,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
         const diffUSD = Number(old.amountUSD||0) - usd;
         if (diffIQD < 0 && Math.abs(diffIQD) > cashIQD) { setAlert(t.noBalance); return; }
         if (diffUSD < 0 && Math.abs(diffUSD) > cashUSD) { setAlert(t.noBalance); return; }
+        cashUpdatedByMe.current = true;
         setCashIQD(prev => prev + diffIQD); 
         setCashUSD(prev => prev + diffUSD);
         addCashLog(`${t.edit} ${t.sidebar.expenses}`, diffIQD, diffUSD);
@@ -1981,6 +1987,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       window._karoLocal = true;
       setTimeout(() => { window._karoLocal = false; }, 10000);
       await supabase.from("expenses").upsert([{ id: newItem.id, project: pKey, date: newItem.date, amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0), receiptno: String(newItem.receiptNo||""), note: String(newItem.note||""), marked: false }]);
+      cashUpdatedByMe.current = true;
       if (iqd > 0) setCashIQD(prev => prev - iqd);
       if (usd > 0) setCashUSD(prev => prev - usd);
       addCashLog(`${t.sidebar.expenses}: ${form.note||form.receiptNo}`, -iqd, -usd);
@@ -1997,6 +2004,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     
     const item = items.find(i => i.id === id);
     if (item) { 
+      cashUpdatedByMe.current = true;
       setCashIQD(prev => prev + Number(item.amountIQD||0)); 
       setCashUSD(prev => prev + Number(item.amountUSD||0)); 
       addCashLog(`${t.delete} ${t.sidebar.expenses}`, Number(item.amountIQD||0), Number(item.amountUSD||0)); 
@@ -2095,6 +2103,7 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
             return;
           }
           
+          cashUpdatedByMe.current = true;
           if (amountIQD > 0) setCashIQD(prev => prev - amountIQD);
           if (amountUSD > 0) setCashUSD(prev => prev - amountUSD);
           addCashLog(`${t.importExcel}: ${note || receiptNo}`, -amountIQD, -amountUSD);
@@ -2557,10 +2566,12 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         setAlert(t.noBalance);
         return;
       }
+      cashUpdatedByMe.current = true;
       setCashIQD(prev => prev - Number(item.amountIQD||0));
       setCashUSD(prev => prev - Number(item.amountUSD||0));
       addCashLog(`${t.returnMoney} ${t.loanTake}`, -Number(item.amountIQD||0), -Number(item.amountUSD||0));
     } else {
+      cashUpdatedByMe.current = true;
       setCashIQD(prev => prev + Number(item.amountIQD||0));
       setCashUSD(prev => prev + Number(item.amountUSD||0));
       addCashLog(`${t.returnMoney} ${t.loanGive}`, Number(item.amountIQD||0), Number(item.amountUSD||0));
@@ -2999,16 +3010,19 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
 
     // کۆنەکەی لادەبە لە قاسە
     if (editItem.isReceived) {
+      cashUpdatedByMe.current = true;
       if (editItem.currency === "usd") setCashUSD(prev => prev - Number(editItem.received||0));
       else setCashIQD(prev => prev - Number(editItem.received||0));
     }
     if (editItem.depositClaimed) {
+      cashUpdatedByMe.current = true;
       if (editItem.currency === "usd") setCashUSD(prev => prev - Number(editItem.deposit||0));
       else setCashIQD(prev => prev - Number(editItem.deposit||0));
     }
     // پارەی وەرگیراوی کۆن لادەبە
     const oldPaid = Number(editItem.paidAmount||0);
     if (oldPaid > 0) {
+      cashUpdatedByMe.current = true;
       if (editItem.currency === "usd") setCashUSD(prev => prev - oldPaid);
       else setCashIQD(prev => prev - oldPaid);
     }
@@ -3053,6 +3067,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const item = items.find(i => i.id === id);
     if (item && !item.isReceived) {
       const cur = item.currency || "iqd";
+      cashUpdatedByMe.current = true;
       if (cur === "usd") { setCashUSD(prev => prev + item.received); }
       else { setCashIQD(prev => prev + item.received); }
       window._karoLocal = true;
@@ -3071,6 +3086,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const item2 = items.find(i => i.id === id);
     const cur2 = item2?.currency || "iqd";
     const allPaid = (item2?.payments||[]).reduce((a,b) => a + Number(b.amount||0), 0);
+    cashUpdatedByMe.current = true;
     if (cur2 === "usd") { setCashUSD(prev => prev - allPaid); }
     else { setCashIQD(prev => prev - allPaid); }
     window._karoLocal = true;
@@ -3091,6 +3107,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const oldPaid = Number(item.paidAmount||0);
     const newPaid = oldPaid + amt;
     const remaining = Math.max(0, Number(item.received||0) - newPaid);
+    cashUpdatedByMe.current = true;
     if (cur === "usd") { setCashUSD(prev => prev + amt); }
     else { setCashIQD(prev => prev + amt); }
     window._karoLocal = true;
@@ -3114,6 +3131,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const item = items.find(i => i.id === id);
     if (item && !item.depositClaimed && item.deposit > 0) {
       const cur = item.currency || "iqd";
+      cashUpdatedByMe.current = true;
       if (cur === "usd") { setCashUSD(prev => prev + item.deposit); }
       else { setCashIQD(prev => prev + item.deposit); }
       window._karoLocal = true;
@@ -3135,6 +3153,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (!oldPayment) return;
     const cur = item.currency || "iqd";
     const diff = amt - Number(oldPayment.amount||0);
+    cashUpdatedByMe.current = true;
     if (cur === "usd") { setCashUSD(prev => prev + diff); }
     else { setCashIQD(prev => prev + diff); }
     const newPayments = (item.payments||[]).map(p => p.id === paymentId ? { ...p, amount: amt, date: date||today(), note: note||"" } : p);
@@ -3172,6 +3191,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (!payment) return;
     const cur = item.currency || "iqd";
     const amt = Number(payment.amount||0);
+    cashUpdatedByMe.current = true;
     if (cur === "usd") { setCashUSD(prev => prev - amt); }
     else { setCashIQD(prev => prev - amt); }
     const newPayments = (item.payments||[]).filter(p => p.id !== paymentId);
@@ -3203,6 +3223,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const item = items.find(i => i.id === id);
     if (!item || !item.depositClaimed) return;
     const cur = item.currency || "iqd";
+    cashUpdatedByMe.current = true;
     if (cur === "usd") { setCashUSD(prev => prev - Number(item.deposit||0)); }
     else { setCashIQD(prev => prev - Number(item.deposit||0)); }
     const updItem = { ...item, depositClaimed: false };
@@ -3237,17 +3258,20 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (item) {
       const cur = item.currency || "iqd";
       if (item.isReceived) {
+        cashUpdatedByMe.current = true;
         if (cur === "usd") setCashUSD(prev => prev - Number(item.received||0));
         else setCashIQD(prev => prev - Number(item.received||0));
         addCashLog(`${t.delete} ${t.sidebar.concrete}`, cur==="iqd"?-Number(item.received||0):0, cur==="usd"?-Number(item.received||0):0);
       }
       if (item.depositClaimed) {
+        cashUpdatedByMe.current = true;
         if (cur === "usd") setCashUSD(prev => prev - Number(item.deposit||0));
         else setCashIQD(prev => prev - Number(item.deposit||0));
         addCashLog(`${t.delete} ${t.claimDeposit}`, cur==="iqd"?-Number(item.deposit||0):0, cur==="usd"?-Number(item.deposit||0):0);
       }
       const paidAmt = Number(item.paidAmount||0);
       if (paidAmt > 0 && !item.isReceived) {
+        cashUpdatedByMe.current = true;
         if (cur === "usd") setCashUSD(prev => prev - paidAmt);
         else setCashIQD(prev => prev - paidAmt);
         addCashLog(`${t.delete} payment`, cur==="iqd"?-paidAmt:0, cur==="usd"?-paidAmt:0);
@@ -3960,6 +3984,7 @@ function ExchangePage({ t, s, isRtl, exchangeRate, setExchangeRate, cashIQD, set
         return; 
       }
       const convertedIQD = Math.round(a * exchangeRate);
+      cashUpdatedByMe.current = true;
       setCashUSD(prev => prev - a); 
       setCashIQD(prev => prev + convertedIQD); 
       addCashLog(`${t.convert}: $${a} → ${fmt(convertedIQD)} ${t.iqd}`, convertedIQD, -a);
@@ -3969,6 +3994,7 @@ function ExchangePage({ t, s, isRtl, exchangeRate, setExchangeRate, cashIQD, set
         return; 
       }
       const convertedUSD = Math.round(a / exchangeRate);
+      cashUpdatedByMe.current = true;
       setCashIQD(prev => prev - a); 
       setCashUSD(prev => prev + convertedUSD); 
       addCashLog(`${t.convert}: ${fmt(a)} ${t.iqd} → $${convertedUSD}`, -a, convertedUSD);
