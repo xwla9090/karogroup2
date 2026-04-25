@@ -629,6 +629,7 @@ export default function App() {
   const [cashLog, setCashLog] = useState(getLS(`karo_cashLog_${pKey}`, []));
 
   const cashRemoteRef = useRef(false);
+  const prevCashRef = useRef({ iqd: null, usd: null });
   useEffect(() => {
     const cashHandler = () => {
       const newIQD = JSON.parse(localStorage.getItem("karo_cashIQD_" + pKey) || "0");
@@ -644,6 +645,8 @@ export default function App() {
   useEffect(() => {
     if (!pKey || pKey === "default") return;
     if (cashRemoteRef.current) { cashRemoteRef.current = false; return; }
+    if (prevCashRef.current.iqd === cashIQD && prevCashRef.current.usd === cashUSD) return;
+    prevCashRef.current = { iqd: cashIQD, usd: cashUSD };
     const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
     supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
   }, [cashIQD, cashUSD, exchangeRate, pKey]);
@@ -675,8 +678,8 @@ export default function App() {
         try {
           const { data: cashData } = await supabase.from("cash").select("*").eq("project", pk);
           if (cashData && cashData[0]) {
-            setCashIQD(cashData[0].cashiqd || 0);
-            setCashUSD(cashData[0].cashusd || 0);
+            cashRemoteRef.current = true; setCashIQD(cashData[0].cashiqd || 0);
+            cashRemoteRef.current = true; setCashUSD(cashData[0].cashusd || 0);
             setExchangeRate(cashData[0].exchangerate || 1500);
             if (cashData[0].cashlog) {
               const remotelog = JSON.parse(cashData[0].cashlog || "[]");
