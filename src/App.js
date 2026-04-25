@@ -688,8 +688,11 @@ export default function App() {
             }
           } else {
             // cash بەتاڵە — format کراوەتەوە — localStorage یش رەش بکەرەوە
+            cashRemoteRef.current = true;
             setCashIQD(0);
+            cashRemoteRef.current = true;
             setCashUSD(0);
+            cashRemoteRef.current = true;
             setExchangeRate(1500);
             localStorage.setItem("karo_exp_" + pk, JSON.stringify([]));
             localStorage.setItem("karo_conc_" + pk, JSON.stringify([]));
@@ -701,8 +704,11 @@ export default function App() {
           }
           setCashLog(getLS(`karo_cashLog_${pk}`, []));
         } catch(e) {
+          cashRemoteRef.current = true;
           setCashIQD(getLS(`karo_cashIQD_${pk}`, 0));
+          cashRemoteRef.current = true;
           setCashUSD(getLS(`karo_cashUSD_${pk}`, 0));
+          cashRemoteRef.current = true;
           setExchangeRate(getLS(`karo_rate_${pk}`, 1500));
           setCashLog(getLS(`karo_cashLog_${pk}`, []));
         }
