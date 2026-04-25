@@ -677,19 +677,26 @@ export default function App() {
         try {
           const { data: cashData } = await supabase.from("cash").select("*").eq("project", pk);
           if (cashData && cashData[0]) {
-            // تەنها ئەگەر localStorage بەتاڵ بوو cash لە Supabase بگرە
-            const localIQD = localStorage.getItem("karo_cashIQD_" + pk);
-            const localUSD = localStorage.getItem("karo_cashUSD_" + pk);
-            if (!localIQD || localIQD === "0") {
-              localStorage.setItem("karo_cashIQD_" + pk, JSON.stringify(cashData[0].cashiqd || 0));
-              localStorage.setItem("karo_cashUSD_" + pk, JSON.stringify(cashData[0].cashusd || 0));
+            // cash_history لە Supabase بخوێنەوە و جەمع بکە
+            try {
+              const { data: histData } = await supabase.from("cash_history").select("amountiqd,amountusd").eq("project", pk);
+              if (histData && histData.length > 0) {
+                const totalIQD = histData.reduce((a, b) => a + Number(b.amountiqd || 0), 0);
+                const totalUSD = histData.reduce((a, b) => a + Number(b.amountusd || 0), 0);
+                localStorage.setItem("karo_cashIQD_" + pk, JSON.stringify(totalIQD));
+                localStorage.setItem("karo_cashUSD_" + pk, JSON.stringify(totalUSD));
+                window._cashUpdatedByMe = false;
+                setCashIQD(totalIQD);
+                setCashUSD(totalUSD);
+              } else {
+                window._cashUpdatedByMe = false;
+                setCashIQD(cashData[0].cashiqd || 0);
+                setCashUSD(cashData[0].cashusd || 0);
+              }
+            } catch(e) {
               window._cashUpdatedByMe = false;
               setCashIQD(cashData[0].cashiqd || 0);
               setCashUSD(cashData[0].cashusd || 0);
-            } else {
-              window._cashUpdatedByMe = false;
-              setCashIQD(JSON.parse(localIQD));
-              setCashUSD(JSON.parse(localUSD || "0"));
             }
             setExchangeRate(cashData[0].exchangerate || 1500);
             if (cashData[0].cashlog) {
@@ -757,7 +764,17 @@ export default function App() {
 
   const addCashLog = useCallback((desc, iqd, usd) => {
     setCashLog(prev => { const newBalIQD = cashIQD + (Number(iqd) ? Number(iqd) : 0); const newBalUSD = cashUSD + (Number(usd) ? Number(usd) : 0); const n=[...prev, { id: genId(), date: today(), desc, iqd: Number(iqd) ? Number(iqd) : 0, usd: Number(usd) ? Number(usd) : 0, balIQD: newBalIQD, balUSD: newBalUSD, time: new Date().toLocaleTimeString() }]; if(loggedUser) setLS("karo_cashLog_" + loggedUser.project, n); return n; });
-  }, [loggedUser, cashIQD, cashUSD]);
+    if (loggedUser && pKey) {
+      const hid = genId();
+      supabase.from("cash_history").insert([{
+        id: hid,
+        project: pKey,
+        amountiqd: Number(iqd) || 0,
+        amountusd: Number(usd) || 0,
+        note: String(desc || "")
+      }]);
+    }
+  }, [loggedUser, cashIQD, cashUSD, pKey]);
 
   useEffect(() => {
     const iv = setInterval(() => {

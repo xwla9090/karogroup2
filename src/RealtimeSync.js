@@ -83,10 +83,28 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
         }
       }).subscribe();
 
+    const histSub = supabase.channel("hist_" + project)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "cash_history", filter: "project=eq." + project }, async () => {
+        const { data: histData } = await supabase.from("cash_history").select("amountiqd,amountusd").eq("project", project);
+        if (histData) {
+          const totalIQD = histData.reduce((a, b) => a + Number(b.amountiqd || 0), 0);
+          const totalUSD = histData.reduce((a, b) => a + Number(b.amountusd || 0), 0);
+          localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(totalIQD));
+          localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(totalUSD));
+          if (onCashUpdate) onCashUpdate({ cashiqd: totalIQD, cashusd: totalUSD });
+          else {
+            if (setCashIQD) setCashIQD(totalIQD);
+            if (setCashUSD) setCashUSD(totalUSD);
+          }
+          window.dispatchEvent(new Event("karoDataUpdate"));
+        }
+      }).subscribe();
+
     return () => {
       supabase.removeChannel(expSub);
       supabase.removeChannel(concSub);
       supabase.removeChannel(cashSub);
+      supabase.removeChannel(histSub);
     };
   }, [project]);
 
