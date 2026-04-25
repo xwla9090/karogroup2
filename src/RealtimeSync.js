@@ -27,12 +27,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       let changed = false;
       if (expRes.data) { localStorage.setItem("karo_exp_" + project, JSON.stringify(expRes.data.map(expMapper))); changed = true; }
       if (concRes.data) { localStorage.setItem("karo_conc_" + project, JSON.stringify(concRes.data.map(concMapper))); changed = true; }
-      if (cashRes && cashRes.data) {
-        // تەنها localStorage نوێ بکەرەوە — setCash ناکەین تا cash useEffect نەکرێتەوە
-        localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(cashRes.data.cashiqd || 0));
-        localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(cashRes.data.cashusd || 0));
-        changed = true;
-      }
+      // cash initialLoad دا ناگرێت — RealtimeSync cash channel ئەمەی دەکات
       if (changed) window.dispatchEvent(new Event("karoDataUpdate"));
     };
     initialLoad();
