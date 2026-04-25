@@ -680,7 +680,7 @@ export default function App() {
           if (cashData && cashData[0]) {
             cashRemoteRef.current = true; setCashIQD(cashData[0].cashiqd || 0);
             cashRemoteRef.current = true; setCashUSD(cashData[0].cashusd || 0);
-            setExchangeRate(cashData[0].exchangerate || 1500);
+            cashRemoteRef.current = true; setExchangeRate(cashData[0].exchangerate || 1500);
             if (cashData[0].cashlog) {
               const remotelog = JSON.parse(cashData[0].cashlog || "[]");
               setCashLog(remotelog);
