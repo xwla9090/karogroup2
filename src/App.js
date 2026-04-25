@@ -632,6 +632,7 @@ export default function App() {
   useEffect(() => {
     if (!pKey || pKey === "default") return;
     if (cashRemoteRef.current) { cashRemoteRef.current = false; return; }
+    if (window._karoInitLoad) { window._karoInitLoad = false; return; }
     const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
     supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
   }, [cashIQD, cashUSD, exchangeRate, pKey]);

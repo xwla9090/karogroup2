@@ -28,14 +28,16 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       if (expRes.data) { localStorage.setItem("karo_exp_" + project, JSON.stringify(expRes.data.map(expMapper))); changed = true; }
       if (concRes.data) { localStorage.setItem("karo_conc_" + project, JSON.stringify(concRes.data.map(concMapper))); changed = true; }
       if (cashRes && cashRes.data) {
-        // localStorage نوێ بکەرەوە بەلام setCash ناکەین تا loop نەدروست بێت
         localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(cashRes.data.cashiqd || 0));
         localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(cashRes.data.cashusd || 0));
+        // _karoInitLoad flag — cash useEffect ignore بکات
+        window._karoInitLoad = true;
         if (onCashUpdate) onCashUpdate(cashRes.data);
         else {
           if (setCashIQD) setCashIQD(cashRes.data.cashiqd || 0);
           if (setCashUSD) setCashUSD(cashRes.data.cashusd || 0);
         }
+        setTimeout(() => { window._karoInitLoad = false; }, 2000);
         changed = true;
       }
       if (changed) window.dispatchEvent(new Event("karoDataUpdate"));
