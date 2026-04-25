@@ -677,11 +677,20 @@ export default function App() {
         try {
           const { data: cashData } = await supabase.from("cash").select("*").eq("project", pk);
           if (cashData && cashData[0]) {
-            localStorage.setItem("karo_cashIQD_" + pk, JSON.stringify(cashData[0].cashiqd || 0));
-            localStorage.setItem("karo_cashUSD_" + pk, JSON.stringify(cashData[0].cashusd || 0));
-            window._cashUpdatedByMe = false;
-            setCashIQD(cashData[0].cashiqd || 0);
-            setCashUSD(cashData[0].cashusd || 0);
+            // تەنها ئەگەر localStorage بەتاڵ بوو cash لە Supabase بگرە
+            const localIQD = localStorage.getItem("karo_cashIQD_" + pk);
+            const localUSD = localStorage.getItem("karo_cashUSD_" + pk);
+            if (!localIQD || localIQD === "0") {
+              localStorage.setItem("karo_cashIQD_" + pk, JSON.stringify(cashData[0].cashiqd || 0));
+              localStorage.setItem("karo_cashUSD_" + pk, JSON.stringify(cashData[0].cashusd || 0));
+              window._cashUpdatedByMe = false;
+              setCashIQD(cashData[0].cashiqd || 0);
+              setCashUSD(cashData[0].cashusd || 0);
+            } else {
+              window._cashUpdatedByMe = false;
+              setCashIQD(JSON.parse(localIQD));
+              setCashUSD(JSON.parse(localUSD || "0"));
+            }
             setExchangeRate(cashData[0].exchangerate || 1500);
             if (cashData[0].cashlog) {
               const remotelog = JSON.parse(cashData[0].cashlog || "[]");
