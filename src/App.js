@@ -799,9 +799,9 @@ export default function App() {
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
     onCashUpdate={cash => {
+      cashRemoteRef.current = true;
       localStorage.setItem("karo_cashIQD_" + loggedUser.project, JSON.stringify(cash.cashiqd || 0));
       localStorage.setItem("karo_cashUSD_" + loggedUser.project, JSON.stringify(cash.cashusd || 0));
-      cashRemoteRef.current = true;
       setCashIQD(cash.cashiqd || 0);
       cashRemoteRef.current = true;
       setCashUSD(cash.cashusd || 0);
