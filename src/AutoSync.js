@@ -18,7 +18,7 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         var cashLogData = [];
         try { cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + project) || "[]"); } catch(e) {}
         var uLen = users ? users.length : 0;
-        var hash = exp.length + "" + conc.length + "" + loans.length + "" + contr.length + "" + inv.length + "" + cashIQD + "" + cashUSD + "" + uLen + "_" + Math.floor(Date.now()/5000);
+        var hash = exp.length + "" + conc.length + "" + loans.length + "" + contr.length + "" + inv.length + "" + cashIQD + "" + cashUSD + "" + uLen;
         if (hash === lastHash.current) return;
         lastHash.current = hash;
 
