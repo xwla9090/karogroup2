@@ -2481,6 +2481,13 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
   useEffect(() => { setLS(KEY, items); }, [items, KEY]);
   useEffect(() => { setLS(PERSONS_KEY, personsList); }, [personsList, PERSONS_KEY]);
 
+  // ⭐ گوێ بدە بە Realtime updates — بێ refresh نوێ ببێتەوە
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
+
   useEffect(() => {
     const namesFromItems = [...new Set(items.map(i => i.personName).filter(name => name && name.trim() !== ""))];
     const merged = [...new Set([...personsList, ...namesFromItems])];
@@ -2518,7 +2525,7 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -2559,7 +2566,17 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         addCashLog(`${t.edit} ${t.loanGive}: ${pName}`, -iqd, -usd);
       }
       
-      setItems(prev => prev.map(i => i.id===editItem.id ? {...i, ...form, personName: pName} : i));
+      const updatedItem = {...editItem, ...form, personName: pName};
+      setItems(prev => prev.map(i => i.id===editItem.id ? updatedItem : i));
+      // ⭐ یەکسەر لە Supabase نوێ بکە
+      try {
+        await supabase.from("loans").upsert([{
+          id: updatedItem.id, project: pKey, date: String(updatedItem.date||""), 
+          type: String(updatedItem.type||""), personname: String(updatedItem.personName||""),
+          amountiqd: Number(updatedItem.amountIQD||0), amountusd: Number(updatedItem.amountUSD||0),
+          note: String(updatedItem.note||""), returned: !!updatedItem.returned, marked: !!updatedItem.marked
+        }]);
+      } catch(e) { console.error(e); }
       setEditModalOpen(false);
     } else {
       if (form.type==="give") {
@@ -2572,13 +2589,23 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.loanTake}: ${pName}`, iqd, usd);
       }
-      setItems(prev => [{...form, personName: pName, id: genId(), marked: false, returned: false}, ...prev]);
+      const newItem = {...form, personName: pName, id: genId(), marked: false, returned: false};
+      setItems(prev => [newItem, ...prev]);
+      // ⭐ یەکسەر لە Supabase زیاد بکە
+      try {
+        await supabase.from("loans").upsert([{
+          id: newItem.id, project: pKey, date: String(newItem.date||""), 
+          type: String(newItem.type||""), personname: String(newItem.personName||""),
+          amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0),
+          note: String(newItem.note||""), returned: !!newItem.returned, marked: !!newItem.marked
+        }]);
+      } catch(e) { console.error(e); }
       setShowForm(false);
     }
     resetForm(); 
   };
 
-  const handleReturn = (id) => {
+  const handleReturn = async (id) => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -2604,12 +2631,20 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     }
 
     setItems(prev => prev.map(i => i.id === id ? { ...i, returned: true, amountIQD: 0, amountUSD: 0 } : i));
-    window.dispatchEvent(new Event("karoLocalChange"));
+    // ⭐ یەکسەر لە Supabase نوێ بکە
+    try {
+      await supabase.from("loans").upsert([{
+        id: item.id, project: pKey, date: String(item.date||""), 
+        type: String(item.type||""), personname: String(item.personName||""),
+        amountiqd: 0, amountusd: 0,
+        note: String(item.note||""), returned: true, marked: !!item.marked
+      }]);
+    } catch(e) { console.error(e); }
     window.dispatchEvent(new Event("karoLocalChange"));
     setConfirmReturn(null);
   };
 
-  const doDelete = id => {
+  const doDelete = async id => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -2628,6 +2663,8 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       }
     }
     setItems(prev => prev.filter(i=>i.id!==id));
+    // ⭐ یەکسەر لە Supabase بسڕەوە
+    try { await supabase.from("loans").delete().eq("id", id); } catch(e) { console.error(e); }
     setConfirmDel(null);
   };
 
