@@ -13,21 +13,50 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       }
     };
 
-    // کاتی کرایەوەی براوزەر — هەموو داتا بخوێنەوە
+    // کاتی کردنەوەی براوسەر — هەموو داتا بخوێنەوە
     const initialLoad = async () => {
       const concMapper = c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: (() => { try { return Array.isArray(c.payments) ? c.payments : JSON.parse(c.payments||"[]"); } catch(e) { return []; } })() });
       const expMapper = e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked });
 
-      const [expRes, concRes, cashRes] = await Promise.all([
+      const [expRes, concRes, cashRes, histRes] = await Promise.all([
         supabase.from("expenses").select("*").eq("project", project),
         supabase.from("concrete").select("*").eq("project", project),
-        supabase.from("cash").select("*").eq("project", project).single()
+        supabase.from("cash").select("*").eq("project", project).single(),
+        supabase.from("cash_history").select("amountiqd,amountusd").eq("project", project)
       ]);
 
       let changed = false;
       if (expRes.data) { localStorage.setItem("karo_exp_" + project, JSON.stringify(expRes.data.map(expMapper))); changed = true; }
       if (concRes.data) { localStorage.setItem("karo_conc_" + project, JSON.stringify(concRes.data.map(concMapper))); changed = true; }
-      // cash initialLoad دا ناگرێت — RealtimeSync cash channel ئەمەی دەکات
+
+      // ⭐ گۆڕانکاری گرنگ: کۆی cash_history بخوێنەوە بۆ قاسە
+      if (histRes.data && histRes.data.length > 0) {
+        const totalIQD = histRes.data.reduce((a, b) => a + Number(b.amountiqd || 0), 0);
+        const totalUSD = histRes.data.reduce((a, b) => a + Number(b.amountusd || 0), 0);
+        localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(totalIQD));
+        localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(totalUSD));
+        if (onCashUpdate) onCashUpdate({ cashiqd: totalIQD, cashusd: totalUSD });
+        else {
+          if (setCashIQD) setCashIQD(totalIQD);
+          if (setCashUSD) setCashUSD(totalUSD);
+        }
+        changed = true;
+      } else if (cashRes.data) {
+        // ئەگەر cash_history بەتاڵ بوو، cash table بەکاربهێنە
+        localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(cashRes.data.cashiqd || 0));
+        localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(cashRes.data.cashusd || 0));
+        if (onCashUpdate) onCashUpdate(cashRes.data);
+        else {
+          if (setCashIQD) setCashIQD(cashRes.data.cashiqd || 0);
+          if (setCashUSD) setCashUSD(cashRes.data.cashusd || 0);
+        }
+        changed = true;
+      }
+
+      if (cashRes.data && cashRes.data.cashlog) {
+        localStorage.setItem("karo_cashLog_" + project, cashRes.data.cashlog);
+      }
+
       if (changed) window.dispatchEvent(new Event("karoDataUpdate"));
     };
     initialLoad();
