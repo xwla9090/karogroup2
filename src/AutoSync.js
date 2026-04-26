@@ -6,9 +6,18 @@ function S(v) { return v ? String(v) : ""; }
 function B(v) { return v ? true : false; }
 export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, users }) {
   const lastHash = useRef("");
+  const isReady = useRef(false);
+  
   useEffect(() => {
     if (!project) return;
+    
+    // ⭐ چاوەڕێ ٥ چرکە بۆ ئەوەی RealtimeSync initialLoad تەواو ببێت
+    const readyTimer = setTimeout(() => { isReady.current = true; }, 5000);
+    
     const doSync = async () => {
+      // ⭐ ئەگەر isReady هێشتا false بوو، هیچ مەکە
+      if (!isReady.current) return;
+      
       try {
         var exp = getLS("karo_exp_" + project);
         var conc = getLS("karo_conc_" + project);
@@ -21,8 +30,6 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         var hash = exp.length + "" + conc.length + "" + loans.length + "" + contr.length + "" + inv.length + "" + cashIQD + "" + cashUSD + "" + uLen;
         if (hash === lastHash.current) return;
         lastHash.current = hash;
-
-
 
         if (loans.length > 0) {
           var rows3 = [];
@@ -69,7 +76,6 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
           }
         }
 
-        // چێک بکە ئایا format کراوەتەوە
         const { data: cashCheck } = await supabase.from("cash").select("formatted_at, cashlog").eq("project", project).single();
         if (cashCheck && cashCheck.formatted_at) {
           const localFormatted = localStorage.getItem("karo_formatted_" + project);
@@ -98,9 +104,16 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
 
       } catch(err) { console.error("Sync error:", err); }
     };
-    doSync();
+    
+    // ⭐ یەکەم doSync دوای ٦ چرکە (دوای ئەوەی isReady بێتە true)
+    var firstSync = setTimeout(doSync, 6000);
     var interval = setInterval(doSync, 60000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearTimeout(readyTimer);
+      clearTimeout(firstSync);
+      clearInterval(interval);
+    };
   }, [project, cashIQD, cashUSD, exchangeRate, users]);
   return null;
 }
