@@ -30,33 +30,44 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       if (concRes.data) { localStorage.setItem("karo_conc_" + project, JSON.stringify(concRes.data.map(concMapper))); changed = true; }
 
       // ⭐ گۆڕانکاری گرنگ: کۆی cash_history بخوێنەوە بۆ قاسە
+      let realCashIQD = 0;
+      let realCashUSD = 0;
+      
       if (histRes.data && histRes.data.length > 0) {
-        const totalIQD = histRes.data.reduce((a, b) => a + Number(b.amountiqd || 0), 0);
-        const totalUSD = histRes.data.reduce((a, b) => a + Number(b.amountusd || 0), 0);
-        localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(totalIQD));
-        localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(totalUSD));
-        if (onCashUpdate) onCashUpdate({ cashiqd: totalIQD, cashusd: totalUSD });
-        else {
-          if (setCashIQD) setCashIQD(totalIQD);
-          if (setCashUSD) setCashUSD(totalUSD);
-        }
-        changed = true;
+        realCashIQD = histRes.data.reduce((a, b) => a + Number(b.amountiqd || 0), 0);
+        realCashUSD = histRes.data.reduce((a, b) => a + Number(b.amountusd || 0), 0);
       } else if (cashRes.data) {
-        // ئەگەر cash_history بەتاڵ بوو، cash table بەکاربهێنە
-        localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(cashRes.data.cashiqd || 0));
-        localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(cashRes.data.cashusd || 0));
-        if (onCashUpdate) onCashUpdate(cashRes.data);
-        else {
-          if (setCashIQD) setCashIQD(cashRes.data.cashiqd || 0);
-          if (setCashUSD) setCashUSD(cashRes.data.cashusd || 0);
-        }
-        changed = true;
+        realCashIQD = cashRes.data.cashiqd || 0;
+        realCashUSD = cashRes.data.cashusd || 0;
       }
+
+      // ⭐ یەکسەر localStorage و state نوێ بکە
+      localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(realCashIQD));
+      localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(realCashUSD));
+      
+      if (onCashUpdate) onCashUpdate({ cashiqd: realCashIQD, cashusd: realCashUSD });
+      else {
+        if (setCashIQD) setCashIQD(realCashIQD);
+        if (setCashUSD) setCashUSD(realCashUSD);
+      }
+
+      // ⭐ گرنگترین: یەکسەر cash table نوێ بکە لە Supabase بە بەهای ڕاست
+      // بۆ ئەوەی AutoSync ـی هیچ براوسەرێک نەتوانێت بیگۆڕێت بە 0
+      await supabase.from("cash").upsert([{
+        id: project,
+        project: project,
+        cashiqd: realCashIQD,
+        cashusd: realCashUSD,
+        exchangerate: cashRes.data ? (cashRes.data.exchangerate || 1500) : 1500,
+        cashlog: cashRes.data ? cashRes.data.cashlog : "[]",
+        formatted_at: cashRes.data ? (cashRes.data.formatted_at || "") : ""
+      }]);
 
       if (cashRes.data && cashRes.data.cashlog) {
         localStorage.setItem("karo_cashLog_" + project, cashRes.data.cashlog);
       }
 
+      changed = true;
       if (changed) window.dispatchEvent(new Event("karoDataUpdate"));
     };
     initialLoad();
