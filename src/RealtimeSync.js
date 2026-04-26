@@ -5,6 +5,18 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
   useEffect(() => {
     if (!project) return;
 
+    // ============ MAPPERS ============
+    const expMapper = e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked });
+    
+    const concMapper = c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: (() => { try { return Array.isArray(c.payments) ? c.payments : JSON.parse(c.payments||"[]"); } catch(e) { return []; } })() });
+    
+    const loanMapper = l => ({ id: l.id, date: l.date, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, returned: l.returned, marked: l.marked });
+    
+    const contrMapper = c => ({ id: c.id, date: c.date, type: c.type, personName: c.personname, amountIQD: c.amountiqd, amountUSD: c.amountusd, note: c.note, marked: c.marked });
+    
+    const invMapper = i => ({ id: i.id, date: i.date, invoiceNo: i.invoiceno, currency: i.currency, billTo: i.billto, billPhone: i.billphone, items: (() => { try { return Array.isArray(i.items) ? i.items : JSON.parse(i.items||"[]"); } catch(e) { return []; } })(), total: i.total, marked: i.marked });
+
+    // ============ FETCH AND UPDATE ============
     const fetchAndUpdate = async (table, localKey, mapper) => {
       const { data } = await supabase.from(table).select("*").eq("project", project);
       if (data) {
@@ -13,14 +25,14 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       }
     };
 
-    // کاتی کردنەوەی براوسەر — هەموو داتا بخوێنەوە
+    // ============ INITIAL LOAD ============
     const initialLoad = async () => {
-      const concMapper = c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: (() => { try { return Array.isArray(c.payments) ? c.payments : JSON.parse(c.payments||"[]"); } catch(e) { return []; } })() });
-      const expMapper = e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked });
-
-      const [expRes, concRes, cashRes, histRes] = await Promise.all([
+      const [expRes, concRes, loanRes, contrRes, invRes, cashRes, histRes] = await Promise.all([
         supabase.from("expenses").select("*").eq("project", project),
         supabase.from("concrete").select("*").eq("project", project),
+        supabase.from("loans").select("*").eq("project", project),
+        supabase.from("contractor").select("*").eq("project", project),
+        supabase.from("invoices").select("*").eq("project", project),
         supabase.from("cash").select("*").eq("project", project).single(),
         supabase.from("cash_history").select("amountiqd,amountusd").eq("project", project)
       ]);
@@ -28,8 +40,11 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       let changed = false;
       if (expRes.data) { localStorage.setItem("karo_exp_" + project, JSON.stringify(expRes.data.map(expMapper))); changed = true; }
       if (concRes.data) { localStorage.setItem("karo_conc_" + project, JSON.stringify(concRes.data.map(concMapper))); changed = true; }
+      if (loanRes.data) { localStorage.setItem("karo_loans_" + project, JSON.stringify(loanRes.data.map(loanMapper))); changed = true; }
+      if (contrRes.data) { localStorage.setItem("karo_contr_" + project, JSON.stringify(contrRes.data.map(contrMapper))); changed = true; }
+      if (invRes.data) { localStorage.setItem("karo_inv_" + project, JSON.stringify(invRes.data.map(invMapper))); changed = true; }
 
-      // ⭐ گۆڕانکاری گرنگ: کۆی cash_history بخوێنەوە بۆ قاسە
+      // ⭐ کۆی cash_history بخوێنەوە بۆ قاسە
       let realCashIQD = 0;
       let realCashUSD = 0;
       
@@ -41,7 +56,6 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
         realCashUSD = cashRes.data.cashusd || 0;
       }
 
-      // ⭐ یەکسەر localStorage و state نوێ بکە
       localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(realCashIQD));
       localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(realCashUSD));
       
@@ -51,8 +65,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
         if (setCashUSD) setCashUSD(realCashUSD);
       }
 
-      // ⭐ گرنگترین: یەکسەر cash table نوێ بکە لە Supabase بە بەهای ڕاست
-      // بۆ ئەوەی AutoSync ـی هیچ براوسەرێک نەتوانێت بیگۆڕێت بە 0
+      // ⭐ یەکسەر cash table نوێ بکە لە Supabase بە بەهای ڕاست
       await supabase.from("cash").upsert([{
         id: project,
         project: project,
@@ -72,14 +85,33 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     };
     initialLoad();
 
+    // ============ REALTIME SUBSCRIPTIONS ============
     const expSub = supabase.channel("exp2_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: "project=eq." + project }, () => {
-        fetchAndUpdate("expenses", "karo_exp_", e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
+        fetchAndUpdate("expenses", "karo_exp_", expMapper);
       }).subscribe();
 
     const concSub = supabase.channel("conc2_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "concrete", filter: "project=eq." + project }, () => {
-        fetchAndUpdate("concrete", "karo_conc_", c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: JSON.parse(c.payments||"[]") }));
+        fetchAndUpdate("concrete", "karo_conc_", concMapper);
+      }).subscribe();
+
+    // ⭐ Realtime بۆ loans
+    const loanSub = supabase.channel("loan_rt_" + project)
+      .on("postgres_changes", { event: "*", schema: "public", table: "loans", filter: "project=eq." + project }, () => {
+        fetchAndUpdate("loans", "karo_loans_", loanMapper);
+      }).subscribe();
+
+    // ⭐ Realtime بۆ contractor
+    const contrSub = supabase.channel("contr_rt_" + project)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contractor", filter: "project=eq." + project }, () => {
+        fetchAndUpdate("contractor", "karo_contr_", contrMapper);
+      }).subscribe();
+
+    // ⭐ Realtime بۆ invoices
+    const invSub = supabase.channel("inv_rt_" + project)
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: "project=eq." + project }, () => {
+        fetchAndUpdate("invoices", "karo_inv_", invMapper);
       }).subscribe();
 
     const cashSub = supabase.channel("cash_rt_" + project)
@@ -143,6 +175,9 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     return () => {
       supabase.removeChannel(expSub);
       supabase.removeChannel(concSub);
+      supabase.removeChannel(loanSub);
+      supabase.removeChannel(contrSub);
+      supabase.removeChannel(invSub);
       supabase.removeChannel(cashSub);
       supabase.removeChannel(histSub);
     };
