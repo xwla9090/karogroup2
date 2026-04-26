@@ -3761,6 +3761,13 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
   useEffect(() => { setLS(KEY, items); }, [items, KEY]);
   useEffect(() => { setLS(PKEY, personsList); }, [personsList, PKEY]);
 
+  // ⭐ گوێ بدە بە Realtime updates — بێ refresh نوێ ببێتەوە
+  useEffect(() => {
+    const handler = () => setItems(getLS(KEY, []));
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [KEY]);
+
   useEffect(() => {
     const fromItems = [...new Set(items.map(i => i.personName).filter(Boolean))];
     const merged = [...new Set([...personsList, ...fromItems])];
@@ -3796,7 +3803,7 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
@@ -3810,63 +3817,129 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
 
     if (editItem) {
       const old = items.find(i => i.id === editItem.id);
+      let newCashIQD = cashIQD, newCashUSD = cashUSD;
       if (old) {
         if (old.type==="withdraw") { 
+          newCashIQD += Number(old.amountIQD||0);
+          newCashUSD += Number(old.amountUSD||0);
           setCashIQD(p=>p+Number(old.amountIQD||0)); 
           setCashUSD(p=>p+Number(old.amountUSD||0)); 
         } else { 
+          newCashIQD -= Number(old.amountIQD||0);
+          newCashUSD -= Number(old.amountUSD||0);
           setCashIQD(p=>p-Number(old.amountIQD||0)); 
           setCashUSD(p=>p-Number(old.amountUSD||0)); 
         }
       }
       if (form.type==="withdraw") {
         if (iqd>cashIQD||usd>cashUSD) { setAlert(t.noBalance); return; }
+        newCashIQD -= iqd;
+        newCashUSD -= usd;
         setCashIQD(p=>p-iqd); 
         setCashUSD(p=>p-usd); 
         addCashLog(`${t.edit} ${t.withdraw}: ${pName}`, -iqd, -usd);
       } else { 
+        newCashIQD += iqd;
+        newCashUSD += usd;
         setCashIQD(p=>p+iqd); 
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.edit} ${t.addMoney}: ${pName}`, iqd, usd); 
       }
-      setItems(prev => prev.map(i => i.id===editItem.id ? {...i, ...form, personName: pName} : i));
+      const updatedItem = {...editItem, ...form, personName: pName};
+      setItems(prev => prev.map(i => i.id===editItem.id ? updatedItem : i));
+      // ⭐ یەکسەر لە Supabase نوێ بکە
+      try {
+        await supabase.from("contractor").upsert([{
+          id: updatedItem.id, project: pKey, date: String(updatedItem.date||""), 
+          type: String(updatedItem.type||""), personname: String(updatedItem.personName||""),
+          amountiqd: Number(updatedItem.amountIQD||0), amountusd: Number(updatedItem.amountUSD||0),
+          note: String(updatedItem.note||""), marked: !!updatedItem.marked
+        }]);
+        // ⭐ یەکسەر cash table نوێ بکەرەوە
+        await supabase.from("cash").upsert([{
+          id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
+          exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+          cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
+          formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
+        }]);
+      } catch(e) { console.error(e); }
       setEditModalOpen(false);
     } else {
+      let newCashIQD = cashIQD, newCashUSD = cashUSD;
       if (form.type==="withdraw") {
         if (iqd>cashIQD||usd>cashUSD) { setAlert(t.noBalance); return; }
+        newCashIQD = cashIQD - iqd;
+        newCashUSD = cashUSD - usd;
         setCashIQD(p=>p-iqd); 
         setCashUSD(p=>p-usd); 
         addCashLog(`${t.withdraw}: ${pName}`, -iqd, -usd);
       } else { 
+        newCashIQD = cashIQD + iqd;
+        newCashUSD = cashUSD + usd;
         setCashIQD(p=>p+iqd); 
         setCashUSD(p=>p+usd); 
         addCashLog(`${t.addMoney}: ${pName}`, iqd, usd); 
       }
-      setItems(prev => [{...form, personName: pName, id: genId(), marked: false}, ...prev]);
+      const newItem = {...form, personName: pName, id: genId(), marked: false};
+      setItems(prev => [newItem, ...prev]);
+      // ⭐ یەکسەر لە Supabase زیاد بکە
+      try {
+        await supabase.from("contractor").upsert([{
+          id: newItem.id, project: pKey, date: String(newItem.date||""), 
+          type: String(newItem.type||""), personname: String(newItem.personName||""),
+          amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0),
+          note: String(newItem.note||""), marked: !!newItem.marked
+        }]);
+        // ⭐ یەکسەر cash table نوێ بکەرەوە
+        await supabase.from("cash").upsert([{
+          id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
+          exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+          cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
+          formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
+        }]);
+      } catch(e) { console.error(e); }
       setShowForm(false);
     }
     resetForm(); 
   };
 
-  const doDelete = id => {
+  const doDelete = async id => {
     if (isFrozen) {
       setAlert(t.frozen);
       return;
     }
     
     const item = items.find(i=>i.id===id);
+    let newCashIQD = cashIQD, newCashUSD = cashUSD;
     if (item) {
       if (item.type==="withdraw") { 
+        newCashIQD = cashIQD + Number(item.amountIQD||0);
+        newCashUSD = cashUSD + Number(item.amountUSD||0);
         setCashIQD(p=>p+Number(item.amountIQD||0)); 
         setCashUSD(p=>p+Number(item.amountUSD||0)); 
         addCashLog(`${t.delete} ${t.withdraw}`, Number(item.amountIQD||0), Number(item.amountUSD||0)); 
       } else { 
+        newCashIQD = cashIQD - Number(item.amountIQD||0);
+        newCashUSD = cashUSD - Number(item.amountUSD||0);
         setCashIQD(p=>p-Number(item.amountIQD||0)); 
         setCashUSD(p=>p-Number(item.amountUSD||0)); 
         addCashLog(`${t.delete} ${t.addMoney}`, -Number(item.amountIQD||0), -Number(item.amountUSD||0)); 
       }
     }
     setItems(prev => prev.filter(i=>i.id!==id));
+    // ⭐ یەکسەر لە Supabase بسڕەوە
+    try { 
+      await supabase.from("contractor").delete().eq("id", id);
+      // ⭐ یەکسەر cash table نوێ بکەرەوە
+      if (item) {
+        await supabase.from("cash").upsert([{
+          id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
+          exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+          cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
+          formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
+        }]);
+      }
+    } catch(e) { console.error(e); }
     setConfirmDel(null);
   };
 
