@@ -27,14 +27,15 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
 
     // ============ INITIAL LOAD ============
     const initialLoad = async () => {
-      const [expRes, concRes, loanRes, contrRes, invRes, cashRes, histRes] = await Promise.all([
+      const [expRes, concRes, loanRes, contrRes, invRes, cashRes, histRes, personsRes] = await Promise.all([
         supabase.from("expenses").select("*").eq("project", project),
         supabase.from("concrete").select("*").eq("project", project),
         supabase.from("loans").select("*").eq("project", project),
         supabase.from("contractor").select("*").eq("project", project),
         supabase.from("invoices").select("*").eq("project", project),
         supabase.from("cash").select("*").eq("project", project).single(),
-        supabase.from("cash_history").select("amountiqd,amountusd").eq("project", project)
+        supabase.from("cash_history").select("amountiqd,amountusd").eq("project", project),
+        supabase.from("persons").select("*").eq("project", project)
       ]);
 
       let changed = false;
@@ -43,6 +44,15 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       if (loanRes.data) { localStorage.setItem("karo_loans_" + project, JSON.stringify(loanRes.data.map(loanMapper))); changed = true; }
       if (contrRes.data) { localStorage.setItem("karo_contr_" + project, JSON.stringify(contrRes.data.map(contrMapper))); changed = true; }
       if (invRes.data) { localStorage.setItem("karo_inv_" + project, JSON.stringify(invRes.data.map(invMapper))); changed = true; }
+
+      // ⭐ کەسەکان بهێنە و دابەشیان بکە بۆ قەرز و مقاول
+      if (personsRes.data) {
+        const loanPersons = personsRes.data.filter(p => p.type === "loan").map(p => p.name);
+        const contrPersons = personsRes.data.filter(p => p.type === "contractor").map(p => p.name);
+        localStorage.setItem("karo_loanPersons_" + project, JSON.stringify(loanPersons));
+        localStorage.setItem("karo_contrPersons_" + project, JSON.stringify(contrPersons));
+        changed = true;
+      }
 
       // ⭐ کۆی cash_history بخوێنەوە بۆ قاسە
       let realCashIQD = 0;
@@ -114,6 +124,19 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
         fetchAndUpdate("invoices", "karo_inv_", invMapper);
       }).subscribe();
 
+    // ⭐ Realtime بۆ persons (ناوی کەسەکان)
+    const personsSub = supabase.channel("persons_rt_" + project)
+      .on("postgres_changes", { event: "*", schema: "public", table: "persons", filter: "project=eq." + project }, async () => {
+        const { data } = await supabase.from("persons").select("*").eq("project", project);
+        if (data) {
+          const loanPersons = data.filter(p => p.type === "loan").map(p => p.name);
+          const contrPersons = data.filter(p => p.type === "contractor").map(p => p.name);
+          localStorage.setItem("karo_loanPersons_" + project, JSON.stringify(loanPersons));
+          localStorage.setItem("karo_contrPersons_" + project, JSON.stringify(contrPersons));
+          window.dispatchEvent(new Event("karoDataUpdate"));
+        }
+      }).subscribe();
+
     const cashSub = supabase.channel("cash_rt_" + project)
       .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project }, async (payload) => {
         const newData = payload.new;
@@ -178,6 +201,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       supabase.removeChannel(loanSub);
       supabase.removeChannel(contrSub);
       supabase.removeChannel(invSub);
+      supabase.removeChannel(personsSub);
       supabase.removeChannel(cashSub);
       supabase.removeChannel(histSub);
     };

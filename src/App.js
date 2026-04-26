@@ -2483,10 +2483,13 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 
   // ⭐ گوێ بدە بە Realtime updates — بێ refresh نوێ ببێتەوە
   useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
+    const handler = () => {
+      setItems(getLS(KEY, []));
+      setPersonsList(getLS(PERSONS_KEY, []));
+    };
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
-  }, [KEY]);
+  }, [KEY, PERSONS_KEY]);
 
   useEffect(() => {
     const namesFromItems = [...new Set(items.map(i => i.personName).filter(name => name && name.trim() !== ""))];
@@ -2517,11 +2520,21 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     setNewPerson(""); 
   };
 
-  const handleAddPerson = () => {
+  const handleAddPerson = async () => {
     if (newPerson.trim() && !personsList.includes(newPerson.trim())) {
-      setPersonsList(prev => [...prev, newPerson.trim()]);
-      setForm({ ...form, personName: newPerson.trim() });
+      const name = newPerson.trim();
+      setPersonsList(prev => [...prev, name]);
+      setForm({ ...form, personName: name });
       setNewPerson("");
+      // ⭐ یەکسەر لە Supabase زیاد بکە
+      try {
+        await supabase.from("persons").upsert([{
+          id: pKey + "_loan_" + name,
+          project: pKey,
+          name: name,
+          type: "loan"
+        }]);
+      } catch(e) { console.error(e); }
     }
   };
 
@@ -2541,6 +2554,15 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 
     if (pName && !personsList.includes(pName)) {
       setPersonsList(prev => [...prev, pName]);
+      // ⭐ یەکسەر کەسەکە بنێرە بۆ Supabase
+      try {
+        await supabase.from("persons").upsert([{
+          id: pKey + "_loan_" + pName,
+          project: pKey,
+          name: pName,
+          type: "loan"
+        }]);
+      } catch(e) { console.error(e); }
     }
 
     if (editItem) {
@@ -3763,10 +3785,13 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
 
   // ⭐ گوێ بدە بە Realtime updates — بێ refresh نوێ ببێتەوە
   useEffect(() => {
-    const handler = () => setItems(getLS(KEY, []));
+    const handler = () => {
+      setItems(getLS(KEY, []));
+      setPersonsList(getLS(PKEY, []));
+    };
     window.addEventListener("karoDataUpdate", handler);
     return () => window.removeEventListener("karoDataUpdate", handler);
-  }, [KEY]);
+  }, [KEY, PKEY]);
 
   useEffect(() => {
     const fromItems = [...new Set(items.map(i => i.personName).filter(Boolean))];
@@ -3795,11 +3820,21 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
     setNewPerson(""); 
   };
 
-  const handleAddPerson = () => {
+  const handleAddPerson = async () => {
     if (newPerson.trim() && !personsList.includes(newPerson.trim())) {
-      setPersonsList(prev => [...prev, newPerson.trim()]);
-      setForm({ ...form, personName: newPerson.trim() });
+      const name = newPerson.trim();
+      setPersonsList(prev => [...prev, name]);
+      setForm({ ...form, personName: name });
       setNewPerson("");
+      // ⭐ یەکسەر لە Supabase زیاد بکە
+      try {
+        await supabase.from("persons").upsert([{
+          id: pKey + "_contractor_" + name,
+          project: pKey,
+          name: name,
+          type: "contractor"
+        }]);
+      } catch(e) { console.error(e); }
     }
   };
 
@@ -3813,7 +3848,18 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
     if (iqd===0 && usd===0) return;
     const pName = form.personName || newPerson.trim();
     if (!pName) return;
-    if (!personsList.includes(pName)) setPersonsList(prev => [...prev, pName]);
+    if (!personsList.includes(pName)) {
+      setPersonsList(prev => [...prev, pName]);
+      // ⭐ یەکسەر کەسەکە بنێرە بۆ Supabase
+      try {
+        await supabase.from("persons").upsert([{
+          id: pKey + "_contractor_" + pName,
+          project: pKey,
+          name: pName,
+          type: "contractor"
+        }]);
+      } catch(e) { console.error(e); }
+    }
 
     if (editItem) {
       const old = items.find(i => i.id === editItem.id);
