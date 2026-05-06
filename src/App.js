@@ -2611,14 +2611,14 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         newCashUSD += usd;
         setCashIQD(p=>p+iqd); 
         setCashUSD(p=>p+usd); 
-        addCashLog(`${t.edit} ${t.loanTake}: ${pName}`, iqd, usd); 
+        addCashLog(`${t.edit} ${t.loanTake}: ${pName}`, newCashIQD - cashIQD, newCashUSD - cashUSD); 
       } else if (form.type==="give" && !form.returned) {
         if (iqd>cashIQD||usd>cashUSD) { setAlert(t.noBalance); return; }
         newCashIQD -= iqd;
         newCashUSD -= usd;
         setCashIQD(p=>p-iqd); 
         setCashUSD(p=>p-usd); 
-        addCashLog(`${t.edit} ${t.loanGive}: ${pName}`, -iqd, -usd);
+        addCashLog(`${t.edit} ${t.loanGive}: ${pName}`, newCashIQD - cashIQD, newCashUSD - cashUSD);
       }
       
       const updatedItem = {...editItem, ...form, personName: pName};
@@ -3907,13 +3907,13 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
         newCashUSD -= usd;
         setCashIQD(p=>p-iqd); 
         setCashUSD(p=>p-usd); 
-        addCashLog(`${t.edit} ${t.withdraw}: ${pName}`, -iqd, -usd);
+        addCashLog(`${t.edit} ${t.withdraw}: ${pName}`, newCashIQD - cashIQD, newCashUSD - cashUSD);
       } else { 
         newCashIQD += iqd;
         newCashUSD += usd;
         setCashIQD(p=>p+iqd); 
         setCashUSD(p=>p+usd); 
-        addCashLog(`${t.edit} ${t.addMoney}: ${pName}`, iqd, usd); 
+        addCashLog(`${t.edit} ${t.addMoney}: ${pName}`, newCashIQD - cashIQD, newCashUSD - cashUSD); 
       }
       const updatedItem = {...editItem, ...form, personName: pName};
       setItems(prev => prev.map(i => i.id===editItem.id ? updatedItem : i));
