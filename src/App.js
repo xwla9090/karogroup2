@@ -763,16 +763,40 @@ export default function App() {
   useEffect(() => { if(loggedUser) setLS("karo_rate_" + loggedUser.project, exchangeRate); }, [exchangeRate]);
 
   const addCashLog = useCallback((desc, iqd, usd) => {
-    setCashLog(prev => { const newBalIQD = cashIQD + (Number(iqd) ? Number(iqd) : 0); const newBalUSD = cashUSD + (Number(usd) ? Number(usd) : 0); const n=[...prev, { id: genId(), date: today(), desc, iqd: Number(iqd) ? Number(iqd) : 0, usd: Number(usd) ? Number(usd) : 0, balIQD: newBalIQD, balUSD: newBalUSD, time: new Date().toLocaleTimeString() }]; if(loggedUser) setLS("karo_cashLog_" + loggedUser.project, n); return n; });
+    const sharedId = genId();
+    const iqdN = Number(iqd) ? Number(iqd) : 0;
+    const usdN = Number(usd) ? Number(usd) : 0;
+    
+    setCashLog(prev => {
+      const newBalIQD = cashIQD + iqdN;
+      const newBalUSD = cashUSD + usdN;
+      const n = [...prev, {
+        id: sharedId,
+        date: today(),
+        desc,
+        iqd: iqdN,
+        usd: usdN,
+        balIQD: newBalIQD,
+        balUSD: newBalUSD,
+        time: new Date().toLocaleTimeString()
+      }];
+      if (loggedUser) setLS("karo_cashLog_" + loggedUser.project, n);
+      return n;
+    });
+    
     if (loggedUser && pKey) {
-      const hid = genId();
-      supabase.from("cash_history").insert([{
-        id: hid,
+      const row = {
+        id: sharedId,
         project: pKey,
-        amountiqd: Number(iqd) || 0,
-        amountusd: Number(usd) || 0,
+        amountiqd: iqdN,
+        amountusd: usdN,
         note: String(desc || "")
-      }]);
+      };
+      if (window.__karoSync && window.__karoSync.insertOrQueue) {
+        window.__karoSync.insertOrQueue("cash_history", [row]);
+      } else {
+        supabase.from("cash_history").insert([row]);
+      }
     }
   }, [loggedUser, cashIQD, cashUSD, pKey]);
 
