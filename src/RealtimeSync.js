@@ -17,7 +17,6 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     setCashUSDRef.current = setCashUSD;
   });
 
-  // ============ HASH REFS بۆ skip کردنی update-ی دووبارە ============
   const dataHashRef = useRef({});
   const cashHashRef = useRef("");
   const personsHashRef = useRef("");
@@ -61,30 +60,20 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       }
     };
 
-    // ============ FETCH CASH (cash + cash_history) ============
+    // ============ FETCH CASH ============
+    // ⭐ گرنگ: cash table-ـی Supabase سەرچاوەی ڕاستە (نەک کۆی cash_history)
     const fetchCash = async () => {
       try {
-        const [cashRes, histRes] = await Promise.all([
-          supabase.from("cash").select("*").eq("project", project).maybeSingle(),
-          supabase.from("cash_history").select("amountiqd,amountusd").eq("project", project)
-        ]);
+        const { data: cashData, error } = await supabase.from("cash").select("*").eq("project", project).maybeSingle();
+        if (error) { console.error("[RealtimeSync] fetchCash error:", error); return; }
+        if (!cashData) return;
 
-        let realCashIQD = 0;
-        let realCashUSD = 0;
-
-        // ⭐ cash_history سەرچاوەی ڕاستە — ئەگەر هەبوو
-        if (histRes.data && histRes.data.length > 0) {
-          realCashIQD = histRes.data.reduce((a, b) => a + Number(b.amountiqd || 0), 0);
-          realCashUSD = histRes.data.reduce((a, b) => a + Number(b.amountusd || 0), 0);
-        } else if (cashRes.data) {
-          realCashIQD = Number(cashRes.data.cashiqd || 0);
-          realCashUSD = Number(cashRes.data.cashusd || 0);
-        }
-
-        const exchangeRate = cashRes.data ? (cashRes.data.exchangerate || 1500) : 1500;
-        const cashlog = cashRes.data ? (cashRes.data.cashlog || "[]") : "[]";
-        const formattedAt = cashRes.data ? (cashRes.data.formatted_at || "") : "";
-        const cashHash = realCashIQD + ":" + realCashUSD + ":" + exchangeRate + ":" + (cashlog || "").length + ":" + formattedAt;
+        const realCashIQD = Number(cashData.cashiqd || 0);
+        const realCashUSD = Number(cashData.cashusd || 0);
+        const exchangeRate = cashData.exchangerate || 1500;
+        const cashlog = cashData.cashlog || "[]";
+        const formattedAt = cashData.formatted_at || "";
+        const cashHash = realCashIQD + ":" + realCashUSD + ":" + exchangeRate + ":" + cashlog.length + ":" + formattedAt;
 
         if (cashHash === cashHashRef.current) return;
         cashHashRef.current = cashHash;
@@ -100,21 +89,19 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
             localStorage.setItem("karo_contr_" + project, "[]");
             localStorage.setItem("karo_inv_" + project, "[]");
             localStorage.setItem("karo_cashLog_" + project, "[]");
-            dataHashRef.current = {}; // hashes رەش بکەرەوە
+            dataHashRef.current = {};
           }
         }
 
         localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(realCashIQD));
         localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(realCashUSD));
 
-        if (cashRes.data && cashRes.data.cashlog) {
-          localStorage.setItem("karo_cashLog_" + project, cashRes.data.cashlog);
+        if (cashData.cashlog) {
+          localStorage.setItem("karo_cashLog_" + project, cashData.cashlog);
         }
 
-        // ⭐ ئەم گۆڕانکارییە لە سێرڤەرەوە هاتووە — flag رەش بکەرەوە
         window._cashUpdatedByMe = false;
 
-        // callback بانگ بکە (لە ڕێگای ref-ەوە — stale closure نییە)
         if (onCashUpdateRef.current) {
           onCashUpdateRef.current({
             cashiqd: realCashIQD,
@@ -171,25 +158,36 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     // ============ یەکەم بارکردن ============
     fetchAll();
 
-    // ============ REALTIME SUBSCRIPTIONS (سەرەکی) ============
-    // هەر کاتێک Supabase گۆڕانکاریی دۆزییەوە، یەکسەر push دەکات
+    // ============ REALTIME SUBSCRIPTIONS ============
     const channelSuffix = "_" + Date.now();
 
     const expSub = supabase.channel("exp_rt_" + project + channelSuffix)
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: "project=eq." + project },
-        () => fetchTable("expenses", "karo_exp_", expMapper)).subscribe();
+        () => {
+          fetchTable("expenses", "karo_exp_", expMapper);
+          fetchCash();
+        }).subscribe();
 
     const concSub = supabase.channel("conc_rt_" + project + channelSuffix)
       .on("postgres_changes", { event: "*", schema: "public", table: "concrete", filter: "project=eq." + project },
-        () => fetchTable("concrete", "karo_conc_", concMapper)).subscribe();
+        () => {
+          fetchTable("concrete", "karo_conc_", concMapper);
+          fetchCash();
+        }).subscribe();
 
     const loanSub = supabase.channel("loan_rt_" + project + channelSuffix)
       .on("postgres_changes", { event: "*", schema: "public", table: "loans", filter: "project=eq." + project },
-        () => fetchTable("loans", "karo_loans_", loanMapper)).subscribe();
+        () => {
+          fetchTable("loans", "karo_loans_", loanMapper);
+          fetchCash();
+        }).subscribe();
 
     const contrSub = supabase.channel("contr_rt_" + project + channelSuffix)
       .on("postgres_changes", { event: "*", schema: "public", table: "contractor", filter: "project=eq." + project },
-        () => fetchTable("contractor", "karo_contr_", contrMapper)).subscribe();
+        () => {
+          fetchTable("contractor", "karo_contr_", contrMapper);
+          fetchCash();
+        }).subscribe();
 
     const invSub = supabase.channel("inv_rt_" + project + channelSuffix)
       .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: "project=eq." + project },
@@ -203,13 +201,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project },
         () => fetchCash()).subscribe();
 
-    const histSub = supabase.channel("hist_rt_" + project + channelSuffix)
-      .on("postgres_changes", { event: "*", schema: "public", table: "cash_history", filter: "project=eq." + project },
-        () => fetchCash()).subscribe();
-
     // ============ POLLING FALLBACK ============
-    // ئەگەر Realtime بۆ چرکەیەک کێشەی هەبوو، ئەمە backup-ە
-    // قاسە هەر ٢ چرکە، بەپێچەوانەوەی هەر شتێ هەر ٥ چرکە
     cashPollRef.current = setInterval(() => {
       if (navigator.onLine && document.visibilityState === "visible") {
         fetchCash();
@@ -223,7 +215,6 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     }, 5000);
 
     // ============ VISIBILITY CHANGE ============
-    // کاتێک کاربەر دەگەڕێتەوە سەر تابەکە، یەکسەر fetch بکە
     const onVisibility = () => {
       if (document.visibilityState === "visible" && navigator.onLine) {
         fetchAll();
@@ -232,7 +223,6 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     document.addEventListener("visibilitychange", onVisibility);
 
     // ============ ONLINE EVENT ============
-    // کاتێک ئینتەرنێت گەڕایەوە، یەکسەر fetch بکە
     const onOnline = () => {
       console.log("[RealtimeSync] online — fetching all");
       fetchAll();
@@ -252,7 +242,6 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
       supabase.removeChannel(invSub);
       supabase.removeChannel(personsSub);
       supabase.removeChannel(cashSub);
-      supabase.removeChannel(histSub);
     };
   }, [project]);
 
