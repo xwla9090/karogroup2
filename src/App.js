@@ -3176,13 +3176,17 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     // کۆنەکەی لادەبە لە قاسە
     if (editItem.isReceived) {
       window._cashUpdatedByMe = true;
-      if (editItem.currency === "usd") setCashUSD(prev => prev - Number(editItem.received||0));
-      else setCashIQD(prev => prev - Number(editItem.received||0));
+      const recAmt = Number(editItem.received||0);
+      if (editItem.currency === "usd") setCashUSD(prev => prev - recAmt);
+      else setCashIQD(prev => prev - recAmt);
+      if (recAmt > 0) addCashLog("edit revert received: " + recAmt, editItem.currency === "iqd" ? -recAmt : 0, editItem.currency === "usd" ? -recAmt : 0);
     }
     if (editItem.depositClaimed) {
       window._cashUpdatedByMe = true;
-      if (editItem.currency === "usd") setCashUSD(prev => prev - Number(editItem.deposit||0));
-      else setCashIQD(prev => prev - Number(editItem.deposit||0));
+      const dpAmt = Number(editItem.deposit||0);
+      if (editItem.currency === "usd") setCashUSD(prev => prev - dpAmt);
+      else setCashIQD(prev => prev - dpAmt);
+      if (dpAmt > 0) addCashLog("edit revert deposit: " + dpAmt, editItem.currency === "iqd" ? -dpAmt : 0, editItem.currency === "usd" ? -dpAmt : 0);
     }
     // پارەی وەرگیراوی کۆن لادەبە
     const oldPaid = Number(editItem.paidAmount||0);
@@ -3190,6 +3194,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       window._cashUpdatedByMe = true;
       if (editItem.currency === "usd") setCashUSD(prev => prev - oldPaid);
       else setCashIQD(prev => prev - oldPaid);
+      addCashLog("edit revert paid: " + oldPaid, editItem.currency === "iqd" ? -oldPaid : 0, editItem.currency === "usd" ? -oldPaid : 0);
     }
 
     const updatedItem = {
@@ -3254,6 +3259,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     window._cashUpdatedByMe = true;
     if (cur2 === "usd") { setCashUSD(prev => prev - allPaid); }
     else { setCashIQD(prev => prev - allPaid); }
+    if (allPaid > 0) addCashLog("unmark received: " + allPaid, cur2 === "iqd" ? -allPaid : 0, cur2 === "usd" ? -allPaid : 0);
     window._karoLocal = true;
     const updItem2 = { ...item, isReceived: false, paidAmount: 0, payments: [] };
     await supabase.from("concrete").upsert([{ id: updItem2.id, project: pKey, date: updItem2.date, currency: String(updItem2.currency||"iqd"), meters: Number(updItem2.meters||0), pricepermeter: Number(updItem2.pricePerMeter||0), totalprice: Number(updItem2.totalPrice||0), deposit: Number(updItem2.deposit||0), depositpercent: Number(updItem2.depositPercent||0), received: Number(updItem2.received||0), isreceived: !!updItem2.isReceived, depositclaimed: !!updItem2.depositClaimed, note: String(updItem2.note||""), marked: !!updItem2.marked, paidamount: Number(updItem2.paidAmount||0), payments: JSON.stringify(updItem2.payments||[]) }]);
@@ -3320,6 +3326,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     window._cashUpdatedByMe = true;
     if (cur === "usd") { setCashUSD(prev => prev + diff); }
     else { setCashIQD(prev => prev + diff); }
+    if (diff !== 0) addCashLog("edit payment: " + amt, cur === "iqd" ? diff : 0, cur === "usd" ? diff : 0);
     const newPayments = (item.payments||[]).map(p => p.id === paymentId ? { ...p, amount: amt, date: date||today(), note: note||"" } : p);
     const newPaid = newPayments.reduce((a,b) => a + Number(b.amount||0), 0);
     const updItem = { ...item, payments: newPayments, paidAmount: newPaid, isReceived: newPaid >= Number(item.received||0) };
@@ -3358,6 +3365,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     window._cashUpdatedByMe = true;
     if (cur === "usd") { setCashUSD(prev => prev - amt); }
     else { setCashIQD(prev => prev - amt); }
+    if (amt > 0) addCashLog("delete payment: " + amt, cur === "iqd" ? -amt : 0, cur === "usd" ? -amt : 0);
     const newPayments = (item.payments||[]).filter(p => p.id !== paymentId);
     const newPaid = newPayments.reduce((a,b) => a + Number(b.amount||0), 0);
     const updItem = { ...item, payments: newPayments, paidAmount: newPaid, isReceived: false };
@@ -3387,9 +3395,11 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const item = items.find(i => i.id === id);
     if (!item || !item.depositClaimed) return;
     const cur = item.currency || "iqd";
+    const depAmt = Number(item.deposit||0);
     window._cashUpdatedByMe = true;
-    if (cur === "usd") { setCashUSD(prev => prev - Number(item.deposit||0)); }
-    else { setCashIQD(prev => prev - Number(item.deposit||0)); }
+    if (cur === "usd") { setCashUSD(prev => prev - depAmt); }
+    else { setCashIQD(prev => prev - depAmt); }
+    if (depAmt > 0) addCashLog(`گەڕانەوەی ${t.claimDeposit}: ${depAmt}`, cur === "iqd" ? -depAmt : 0, cur === "usd" ? -depAmt : 0);
     const updItem = { ...item, depositClaimed: false };
     setItems(prev => prev.map(i => i.id === id ? updItem : i));
     window._karoLocal = true;
