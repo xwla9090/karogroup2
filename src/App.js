@@ -4360,9 +4360,20 @@ function InvoicePage({ t, s, isRtl, pKey, isFrozen }) {
   const updateItem = (i, f, v) => { const n=[...form.items]; n[i]={...n[i],[f]:v}; setForm({...form, items: n}); };
   const total = form.items.reduce((a,b)=>a+(Number(b.qty||0)*Number(b.price||0)),0);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isFrozen) return;
-    setInvoices(prev => [{...form, id: genId(), total, marked: false}, ...prev]);
+    const newInv = {...form, id: genId(), total, marked: false};
+    setInvoices(prev => [newInv, ...prev]);
+    // ⭐ یەکسەر بنێرە بۆ Supabase تا براوسەرەکانی تر یەکسەر بیبینن
+    try {
+      await supabase.from("invoices").upsert([{
+        id: newInv.id, project: pKey, date: String(newInv.date || ""),
+        invoiceno: String(newInv.invoiceNo || ""), currency: String(newInv.currency || ""),
+        billto: String(newInv.billTo || ""), billphone: String(newInv.billPhone || ""),
+        items: JSON.stringify(newInv.items || []), total: Number(newInv.total || 0),
+        marked: false
+      }]);
+    } catch(e) { console.error("invoice add error:", e); }
     setForm({ date: today(), invoiceNo: "", currency: "iqd", billTo: "", billPhone: "", items: [{ name: "", qty: "", price: "", note: "" }] });
     setShowForm(false);
   };
@@ -4374,15 +4385,30 @@ function InvoicePage({ t, s, isRtl, pKey, isFrozen }) {
     setEditModalOpen(true);
   };
 
-  const handleEditSave = () => {
-    setInvoices(prev => prev.map(i => i.id === editItem.id ? { ...form, id: editItem.id, total: total } : i));
+  const handleEditSave = async () => {
+    const updatedInv = { ...form, id: editItem.id, total: total };
+    setInvoices(prev => prev.map(i => i.id === editItem.id ? updatedInv : i));
+    // ⭐ یەکسەر بنێرە بۆ Supabase
+    try {
+      await supabase.from("invoices").upsert([{
+        id: updatedInv.id, project: pKey, date: String(updatedInv.date || ""),
+        invoiceno: String(updatedInv.invoiceNo || ""), currency: String(updatedInv.currency || ""),
+        billto: String(updatedInv.billTo || ""), billphone: String(updatedInv.billPhone || ""),
+        items: JSON.stringify(updatedInv.items || []), total: Number(updatedInv.total || 0),
+        marked: !!updatedInv.marked
+      }]);
+    } catch(e) { console.error("invoice edit error:", e); }
     setEditModalOpen(false);
     setForm({ date: today(), invoiceNo: "", currency: "iqd", billTo: "", billPhone: "", items: [{ name: "", qty: "", price: "", note: "" }] });
   };
 
-  const doDelete = id => { 
+  const doDelete = async id => { 
     if (isFrozen) return;
-    setInvoices(prev => prev.filter(i=>i.id!==id)); 
+    setInvoices(prev => prev.filter(i=>i.id!==id));
+    // ⭐ یەکسەر لە Supabase بسڕەوە
+    try {
+      await supabase.from("invoices").delete().eq("id", id);
+    } catch(e) { console.error("invoice delete error:", e); }
     setConfirmDel(null); 
   };
 
