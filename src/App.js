@@ -1130,58 +1130,82 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
 
   const doFormat = async () => {
     if (fmtUser === "admin" && fmtPass === "karo2024") {
-      // تەنها داتای پرۆژەی ئێستا بسڕەوە
-      const keys = []; 
-      for (let i = 0; i < localStorage.length; i++) { 
-        const k = localStorage.key(i); 
-        if (k?.startsWith("karo_") && k.includes(pKey)) keys.push(k); 
+      const formatTimestamp = new Date().toISOString();
+      
+      // ============ هەنگاوی ١: localStorage پاک بکەرەوە ============
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith("karo_") && k.includes(pKey)) keys.push(k);
       }
       keys.forEach(k => localStorage.removeItem(k));
-      // سەرەتا localStorage بەتاڵ بکەرەوە
+      
       localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
       localStorage.setItem("karo_conc_" + pKey, JSON.stringify([]));
       localStorage.setItem("karo_loans_" + pKey, JSON.stringify([]));
       localStorage.setItem("karo_contr_" + pKey, JSON.stringify([]));
-      localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
-      localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
-      // ٣ چرکە بوەستێت تا AutoSync تەواو بێت
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      await supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: 0, cashusd: 0, exchangerate: 1500, formatted_at: new Date().toISOString() }]);
-      // ئینجا Supabase رەش بکەرەوە
-      // localStorage بەتاڵ بکەرەوە پێش هەموو شتێک
-      localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
-      localStorage.setItem("karo_conc_" + pKey, JSON.stringify([]));
-      localStorage.setItem("karo_loans_" + pKey, JSON.stringify([]));
-      localStorage.setItem("karo_contr_" + pKey, JSON.stringify([]));
-      localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
-      localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
-      // ئینجا Supabase رەش بکەرەوە
-      // Supabase یش رەش بکەرەوە
-      await supabase.from("expenses").delete().eq("project", pKey);
-      await supabase.from("concrete").delete().eq("project", pKey);
-      await supabase.from("loans").delete().eq("project", pKey);
-      await supabase.from("contractor").delete().eq("project", pKey);
-      await supabase.from("invoices").delete().eq("project", pKey);
       localStorage.setItem("karo_inv_" + pKey, JSON.stringify([]));
-      await supabase.from("cash").delete().eq("project", pKey);
-      localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
-      localStorage.setItem("karo_conc_" + pKey, JSON.stringify([]));
-      localStorage.setItem("karo_loans_" + pKey, JSON.stringify([]));
-      localStorage.setItem("karo_contr_" + pKey, JSON.stringify([]));
       localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
       localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
       localStorage.setItem("karo_cashLog_" + pKey, JSON.stringify([]));
-      window.dispatchEvent(new Event("karoDataUpdate"));
+      localStorage.setItem("karo_formatted_" + pKey, formatTimestamp);
+      
+      // ============ هەنگاوی ٢: state ی React نوێ بکەرەوە ============
       setCashIQD(0);
       setCashUSD(0);
       setCashLog([]);
       setExchangeRate(1500);
+      
+      // ============ هەنگاوی ٣: AutoSync لاد توا چرکە چاوەڕێ بکە ============
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // ============ هەنگاوی ٤: هەموو تەیبڵەکانی Supabase پاک بکەرەوە ============
+      // ⭐ گرنگ: cash_history-ـیش پاک بکەرەوە — ئەم تەیبڵە سەرچاوەی drift-ی قاسەیە
+      try {
+        await Promise.all([
+          supabase.from("expenses").delete().eq("project", pKey),
+          supabase.from("concrete").delete().eq("project", pKey),
+          supabase.from("loans").delete().eq("project", pKey),
+          supabase.from("contractor").delete().eq("project", pKey),
+          supabase.from("invoices").delete().eq("project", pKey),
+          supabase.from("cash_history").delete().eq("project", pKey)
+        ]);
+      } catch(e) { console.error("[Format] delete tables error:", e); }
+      
+      // ============ هەنگاوی ٥: cash تەیبڵ بە سفر و formatted_at نوێ بکەرەوە ============
+      // ⭐ گرنگ: تەیبڵ نا-بسڕەوە، بەڵکو upsert بکە بە سفر — تا RealtimeSync لە براوسەرەکانی تر
+      // formatted_at-ـی نوێ ببینێت و یەکسەر داتاکانی خۆی پاک بکاتەوە
+      try {
+        await supabase.from("cash").upsert([{
+          id: pKey,
+          project: pKey,
+          cashiqd: 0,
+          cashusd: 0,
+          exchangerate: 1500,
+          cashlog: "[]",
+          formatted_at: formatTimestamp
+        }]);
+      } catch(e) { console.error("[Format] cash reset error:", e); }
+      
+      // ============ هەنگاوی ٦: localStorage دیسان دڵنیا بکەرەوە ============
+      localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_conc_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_loans_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_contr_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_inv_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
+      localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
+      localStorage.setItem("karo_cashLog_" + pKey, JSON.stringify([]));
+      localStorage.setItem("karo_formatted_" + pKey, formatTimestamp);
+      
+      window.dispatchEvent(new Event("karoDataUpdate"));
+      
+      // ============ هەنگاوی ٧: کۆتایی ============
       setFormatModal(false);
       setFmtUser("");
       setFmtPass("");
       alert(t.formatSuccess);
       setTimeout(() => { window.location.href = "/"; }, 500);
-      alert(t.formatSuccess);
     }
   };
 
