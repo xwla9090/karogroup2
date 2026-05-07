@@ -22,6 +22,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
   const personsHashRef = useRef("");
   const cashPollRef = useRef(null);
   const fullPollRef = useRef(null);
+  const reloadingRef = useRef(false); // ⭐ بۆ ڕێگرتن لە چەند reload
 
   useEffect(() => {
     if (!project) return;
@@ -45,6 +46,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
 
     // ============ FETCH TABLE ============
     const fetchTable = async (table, localKey, mapper) => {
+      if (reloadingRef.current) return; // ⭐ ئەگەر reload دەکات، هیچ مەکە
       try {
         const { data, error } = await supabase.from(table).select("*").eq("project", project);
         if (error || !data) return;
@@ -61,8 +63,9 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     };
 
     // ============ FETCH CASH ============
-    // ⭐ گرنگ: cash table-ـی Supabase سەرچاوەی ڕاستە (نەک کۆی cash_history)
+    // ⭐ گرنگ: cash table-ـی Supabase سەرچاوەی ڕاستە
     const fetchCash = async () => {
+      if (reloadingRef.current) return;
       try {
         const { data: cashData, error } = await supabase.from("cash").select("*").eq("project", project).maybeSingle();
         if (error) { console.error("[RealtimeSync] fetchCash error:", error); return; }
@@ -73,25 +76,45 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
         const exchangeRate = cashData.exchangerate || 1500;
         const cashlog = cashData.cashlog || "[]";
         const formattedAt = cashData.formatted_at || "";
-        const cashHash = realCashIQD + ":" + realCashUSD + ":" + exchangeRate + ":" + cashlog.length + ":" + formattedAt;
 
-        if (cashHash === cashHashRef.current) return;
-        cashHashRef.current = cashHash;
-
-        // ⭐ پشکنینی format change
+        // ⭐⭐⭐ FORMAT DETECTION (پشکنینی Format) ⭐⭐⭐
+        // ئەگەر formatted_at لە سێرڤەر گۆڕاوە، واتە کاربەرێکی تر Format-ـی کردووە
         if (formattedAt) {
           const localFormatted = localStorage.getItem("karo_formatted_" + project);
-          if (localFormatted !== formattedAt) {
+          
+          // ئەگەر localFormatted هەبوو و گۆڕاوە، واتە Format ڕوویداوە — RELOAD
+          if (localFormatted && localFormatted !== formattedAt) {
+            console.log("[RealtimeSync] 🚨 FORMAT DETECTED — reloading page");
+            reloadingRef.current = true;
+            
+            // ١. localStorage بە تەواوی پاک بکەرەوە
             localStorage.setItem("karo_formatted_" + project, formattedAt);
             localStorage.setItem("karo_exp_" + project, "[]");
             localStorage.setItem("karo_conc_" + project, "[]");
             localStorage.setItem("karo_loans_" + project, "[]");
             localStorage.setItem("karo_contr_" + project, "[]");
             localStorage.setItem("karo_inv_" + project, "[]");
+            localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(0));
+            localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(0));
             localStorage.setItem("karo_cashLog_" + project, "[]");
-            dataHashRef.current = {};
+            
+            // ٢. ٢٠٠ ملی چرکە چاوەڕێ بکە تا localStorage save ببێت، دواتر reload
+            setTimeout(() => {
+              window.location.reload();
+            }, 200);
+            return;
+          }
+          
+          // ئەگەر یەکەم جار بێت (localFormatted نییە)، تەنها save بکە — reload نا
+          if (!localFormatted) {
+            localStorage.setItem("karo_formatted_" + project, formattedAt);
           }
         }
+
+        const cashHash = realCashIQD + ":" + realCashUSD + ":" + exchangeRate + ":" + cashlog.length + ":" + formattedAt;
+
+        if (cashHash === cashHashRef.current) return;
+        cashHashRef.current = cashHash;
 
         localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(realCashIQD));
         localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(realCashUSD));
@@ -122,6 +145,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
 
     // ============ FETCH PERSONS ============
     const fetchPersons = async () => {
+      if (reloadingRef.current) return;
       try {
         const { data } = await supabase.from("persons").select("*").eq("project", project);
         if (!data) return;
@@ -143,15 +167,17 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
 
     // ============ FETCH ALL ============
     const fetchAll = async () => {
-      if (!navigator.onLine) return;
+      if (!navigator.onLine || reloadingRef.current) return;
+      // ⭐ گرنگ: یەکەم cash بپشکنە — ئەگەر format بوو reload دەکات
+      await fetchCash();
+      if (reloadingRef.current) return;
       await Promise.all([
         fetchTable("expenses", "karo_exp_", expMapper),
         fetchTable("concrete", "karo_conc_", concMapper),
         fetchTable("loans", "karo_loans_", loanMapper),
         fetchTable("contractor", "karo_contr_", contrMapper),
         fetchTable("invoices", "karo_inv_", invMapper),
-        fetchPersons(),
-        fetchCash()
+        fetchPersons()
       ]);
     };
 
@@ -203,20 +229,20 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
 
     // ============ POLLING FALLBACK ============
     cashPollRef.current = setInterval(() => {
-      if (navigator.onLine && document.visibilityState === "visible") {
+      if (navigator.onLine && document.visibilityState === "visible" && !reloadingRef.current) {
         fetchCash();
       }
     }, 2000);
 
     fullPollRef.current = setInterval(() => {
-      if (navigator.onLine && document.visibilityState === "visible") {
+      if (navigator.onLine && document.visibilityState === "visible" && !reloadingRef.current) {
         fetchAll();
       }
     }, 5000);
 
     // ============ VISIBILITY CHANGE ============
     const onVisibility = () => {
-      if (document.visibilityState === "visible" && navigator.onLine) {
+      if (document.visibilityState === "visible" && navigator.onLine && !reloadingRef.current) {
         fetchAll();
       }
     };
@@ -224,6 +250,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
 
     // ============ ONLINE EVENT ============
     const onOnline = () => {
+      if (reloadingRef.current) return;
       console.log("[RealtimeSync] online — fetching all");
       fetchAll();
     };
