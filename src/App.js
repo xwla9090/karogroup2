@@ -1176,19 +1176,54 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       } catch(e) { console.error("[Format] delete tables error:", e); }
       
       // ============ هەنگاوی ٥: cash تەیبڵ بە سفر و formatted_at نوێ بکەرەوە ============
-      // ⭐ گرنگ: تەیبڵ نا-بسڕەوە، بەڵکو upsert بکە بە سفر — تا RealtimeSync لە براوسەرەکانی تر
-      // formatted_at-ـی نوێ ببینێت و یەکسەر داتاکانی خۆی پاک بکاتەوە
-      try {
-        await supabase.from("cash").upsert([{
-          id: pKey,
-          project: pKey,
-          cashiqd: 0,
-          cashusd: 0,
-          exchangerate: 1500,
-          cashlog: "[]",
-          formatted_at: formatTimestamp
-        }]);
-      } catch(e) { console.error("[Format] cash reset error:", e); }
+      // ⭐⭐⭐ Defensive: چەند جار upsert بکە و verify بکە تا race هیچ نەهێڵێت ⭐⭐⭐
+      const upsertCashZero = async () => {
+        try {
+          await supabase.from("cash").upsert([{
+            id: pKey,
+            project: pKey,
+            cashiqd: 0,
+            cashusd: 0,
+            exchangerate: 1500,
+            cashlog: "[]",
+            formatted_at: formatTimestamp
+          }]);
+          return true;
+        } catch(e) { console.error("[Format] cash upsert error:", e); return false; }
+      };
+      
+      // یەکەم upsert
+      await upsertCashZero();
+      
+      // ⭐ Verify loop: ٥ جار پشکنین بکە (هەر ٥٠٠ ملی چرکە)
+      // ئەگەر کاربەرێکی تر cashIQD نوێ کردەوە، دیسان upsert بکە
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+          const { data: check } = await supabase.from("cash")
+            .select("cashiqd, cashusd, formatted_at")
+            .eq("project", pKey)
+            .maybeSingle();
+          
+          if (!check) continue;
+          
+          const isClean = Number(check.cashiqd || 0) === 0 
+                       && Number(check.cashusd || 0) === 0 
+                       && check.formatted_at === formatTimestamp;
+          
+          if (isClean) {
+            console.log("[Format] ✅ cash verified clean after attempt " + (attempt + 1));
+            break;
+          }
+          
+          // Race detected — re-upsert
+          console.log("[Format] 🔄 race detected (cashiqd=" + check.cashiqd + ", cashusd=" + check.cashusd + ") — re-upserting (attempt " + (attempt + 1) + ")");
+          await upsertCashZero();
+        } catch(e) { console.error("[Format] verify error:", e); }
+      }
+      
+      // ⭐ یەک upsert ـی کۆتایی بۆ دڵنیابوون
+      await upsertCashZero();
       
       // ============ هەنگاوی ٦: localStorage دیسان دڵنیا بکەرەوە ============
       localStorage.setItem("karo_exp_" + pKey, JSON.stringify([]));
