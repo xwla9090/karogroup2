@@ -9,106 +9,62 @@ function B(v) { return v ? true : false; }
 
 // ============ OFFLINE QUEUE ============
 const QUEUE_KEY = "karo_sync_queue_v2";
-
-function getQueue() {
-  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); } catch (e) { return []; }
-}
-
-function saveQueue(q) {
-  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) {}
-}
-
+function getQueue() { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); } catch (e) { return []; } }
+function saveQueue(q) { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) {} }
 function addToQueue(op) {
   const q = getQueue();
   q.push({ ...op, qid: Math.random().toString(36).slice(2) + Date.now(), tries: 0, ts: Date.now() });
   saveQueue(q);
 }
-
 async function flushQueue() {
   if (!navigator.onLine) return { flushed: 0, remaining: getQueue().length };
-
   let q = getQueue();
   if (q.length === 0) return { flushed: 0, remaining: 0 };
-
-  console.log("[AutoSync] flushing queue, items:", q.length);
   const remaining = [];
   let flushed = 0;
-
   for (const item of q) {
     try {
       let result;
-      if (item.action === "upsert") {
-        result = await supabase.from(item.table).upsert(item.data);
-      } else if (item.action === "insert") {
-        result = await supabase.from(item.table).insert(item.data);
-      } else if (item.action === "delete") {
-        result = await supabase.from(item.table).delete().eq(item.column, item.value);
-      }
+      if (item.action === "upsert") result = await supabase.from(item.table).upsert(item.data);
+      else if (item.action === "insert") result = await supabase.from(item.table).insert(item.data);
+      else if (item.action === "delete") result = await supabase.from(item.table).delete().eq(item.column, item.value);
       if (result && result.error) throw result.error;
       flushed++;
     } catch (e) {
-      console.error("[AutoSync] queue item failed:", e);
       item.tries = (item.tries || 0) + 1;
       if (item.tries < 5) remaining.push(item);
     }
   }
-
   saveQueue(remaining);
   return { flushed, remaining: remaining.length };
 }
 
 if (typeof window !== "undefined") {
   window.__karoSync = {
-    addToQueue,
-    flushQueue,
-    getQueue,
+    addToQueue, flushQueue, getQueue,
     upsertOrQueue: async (table, data) => {
       try {
-        if (!navigator.onLine) {
-          addToQueue({ action: "upsert", table, data });
-          return { error: null, queued: true };
-        }
+        if (!navigator.onLine) { addToQueue({ action: "upsert", table, data }); return { error: null, queued: true }; }
         const result = await supabase.from(table).upsert(data);
-        if (result.error) {
-          addToQueue({ action: "upsert", table, data });
-        }
+        if (result.error) addToQueue({ action: "upsert", table, data });
         return result;
-      } catch (e) {
-        addToQueue({ action: "upsert", table, data });
-        return { error: e, queued: true };
-      }
+      } catch (e) { addToQueue({ action: "upsert", table, data }); return { error: e, queued: true }; }
     },
     insertOrQueue: async (table, data) => {
       try {
-        if (!navigator.onLine) {
-          addToQueue({ action: "insert", table, data });
-          return { error: null, queued: true };
-        }
+        if (!navigator.onLine) { addToQueue({ action: "insert", table, data }); return { error: null, queued: true }; }
         const result = await supabase.from(table).insert(data);
-        if (result.error) {
-          addToQueue({ action: "insert", table, data });
-        }
+        if (result.error) addToQueue({ action: "insert", table, data });
         return result;
-      } catch (e) {
-        addToQueue({ action: "insert", table, data });
-        return { error: e, queued: true };
-      }
+      } catch (e) { addToQueue({ action: "insert", table, data }); return { error: e, queued: true }; }
     },
     deleteOrQueue: async (table, column, value) => {
       try {
-        if (!navigator.onLine) {
-          addToQueue({ action: "delete", table, column, value });
-          return { error: null, queued: true };
-        }
+        if (!navigator.onLine) { addToQueue({ action: "delete", table, column, value }); return { error: null, queued: true }; }
         const result = await supabase.from(table).delete().eq(column, value);
-        if (result.error) {
-          addToQueue({ action: "delete", table, column, value });
-        }
+        if (result.error) addToQueue({ action: "delete", table, column, value });
         return result;
-      } catch (e) {
-        addToQueue({ action: "delete", table, column, value });
-        return { error: e, queued: true };
-      }
+      } catch (e) { addToQueue({ action: "delete", table, column, value }); return { error: e, queued: true }; }
     }
   };
 }
@@ -123,42 +79,36 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
 
     const readyTimer = setTimeout(() => { isReady.current = true; }, 5000);
 
+    // ⭐ helper بۆ پشکنینی فلاگ — لە چەند شوێن بانگ دەکرێت
+    const isFormatting = () => window._karoFormatting === true;
+
     const doSync = async () => {
       if (!isReady.current) return;
       if (!navigator.onLine) return;
-      
-      // ⭐⭐⭐ یەکەم: ئەگەر format لە ئارادایە (لەم browser-ـەدا)، هیچ مەکە ⭐⭐⭐
-      if (window._karoFormatting) {
-        console.log("[AutoSync] 🚨 format in progress — skipping");
-        return;
-      }
+      if (isFormatting()) { console.log("[AutoSync] 🚨 format flag set — skipping"); return; }
 
       try {
-        // ⭐⭐⭐ هەنگاوی ١: یەکەم پشکنینی formatted_at — پێش هەر شتێک ⭐⭐⭐
-        // ئەمە دەگرێت لە race condition: ئەگەر کاربەرێکی تر Format-ی کردبێت،
-        // ئێمە **هیچ** upload مەکەین تا داتاکانیان نەدزێینەوە
+        // ⭐⭐⭐ هەنگاوی ١: یەکەم پشکنینی formatted_at لە سێرڤەر ⭐⭐⭐
+        let supabaseFormattedAtStart = null;
         try {
-          const { data: cashCheck } = await supabase.from("cash")
-            .select("formatted_at")
-            .eq("project", project)
-            .maybeSingle();
-          
-          if (cashCheck && cashCheck.formatted_at) {
-            const localFormatted = localStorage.getItem("karo_formatted_" + project);
-            if (localFormatted && localFormatted !== cashCheck.formatted_at) {
-              console.log("[AutoSync] 🚨 FORMAT DETECTED — aborting all uploads");
-              // هیچ مەکە — RealtimeSync دواتر page-ـە reload دەکات
+          const { data: cashCheck } = await supabase.from("cash").select("formatted_at").eq("project", project).maybeSingle();
+          if (cashCheck) {
+            supabaseFormattedAtStart = cashCheck.formatted_at || "";
+            const localFormatted = localStorage.getItem("karo_formatted_" + project) || "";
+            if (supabaseFormattedAtStart && localFormatted && localFormatted !== supabaseFormattedAtStart) {
+              console.log("[AutoSync] 🚨 FORMAT DETECTED at start — aborting");
               return;
             }
-            // ئەگەر یەکەم جار بێت، formatted_at-ـی local تۆمار بکە
-            if (!localFormatted) {
-              localStorage.setItem("karo_formatted_" + project, cashCheck.formatted_at);
+            // یەکەم جار ـ تەنها save بکە
+            if (!localFormatted && supabaseFormattedAtStart) {
+              localStorage.setItem("karo_formatted_" + project, supabaseFormattedAtStart);
             }
           }
         } catch (e) { console.error("[AutoSync] format check error:", e); }
 
-        // ⭐ هەنگاوی ٢: queue-ی pending writes flush بکە
+        // ⭐ Queue flush
         await flushQueue();
+        if (isFormatting()) return;
 
         var exp = getLS("karo_exp_" + project);
         var conc = getLS("karo_conc_" + project);
@@ -172,71 +122,99 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         if (hash === lastHash.current) return;
         lastHash.current = hash;
 
-        if (loans.length > 0) {
-          var rows3 = [];
-          for (var l = 0; l < loans.length; l++) {
-            var ln = loans[l];
-            rows3.push({ id: ln.id, project: project, date: S(ln.date), type: S(ln.type), personname: S(ln.personName), amountiqd: N(ln.amountIQD), amountusd: N(ln.amountUSD), note: S(ln.note), returned: B(ln.returned), marked: B(ln.marked) });
-          }
+        // ⭐ پشکنین پێش هەر upsert
+        if (loans.length > 0 && !isFormatting()) {
+          var rows3 = loans.map(ln => ({ id: ln.id, project: project, date: S(ln.date), type: S(ln.type), personname: S(ln.personName), amountiqd: N(ln.amountIQD), amountusd: N(ln.amountUSD), note: S(ln.note), returned: B(ln.returned), marked: B(ln.marked) }));
           await supabase.from("loans").upsert(rows3);
         }
 
-        if (contr.length > 0) {
-          var rows4 = [];
-          for (var ct = 0; ct < contr.length; ct++) {
-            var cn = contr[ct];
-            rows4.push({ id: cn.id, project: project, date: S(cn.date), type: S(cn.type), personname: S(cn.personName), amountiqd: N(cn.amountIQD), amountusd: N(cn.amountUSD), note: S(cn.note), marked: B(cn.marked) });
-          }
+        if (contr.length > 0 && !isFormatting()) {
+          var rows4 = contr.map(cn => ({ id: cn.id, project: project, date: S(cn.date), type: S(cn.type), personname: S(cn.personName), amountiqd: N(cn.amountIQD), amountusd: N(cn.amountUSD), note: S(cn.note), marked: B(cn.marked) }));
           await supabase.from("contractor").upsert(rows4);
         }
 
-        if (inv.length > 0) {
-          var rows5 = [];
-          for (var iv = 0; iv < inv.length; iv++) {
-            var invoice = inv[iv];
-            rows5.push({ id: invoice.id, project: project, date: S(invoice.date), invoiceno: S(invoice.invoiceNo), currency: S(invoice.currency), billto: S(invoice.billTo), billphone: S(invoice.billPhone), items: JSON.stringify(invoice.items || []), total: N(invoice.total), marked: B(invoice.marked) });
-          }
+        if (inv.length > 0 && !isFormatting()) {
+          var rows5 = inv.map(invoice => ({ id: invoice.id, project: project, date: S(invoice.date), invoiceno: S(invoice.invoiceNo), currency: S(invoice.currency), billto: S(invoice.billTo), billphone: S(invoice.billPhone), items: JSON.stringify(invoice.items || []), total: N(invoice.total), marked: B(invoice.marked) }));
           await supabase.from("invoices").upsert(rows5);
         }
 
-        // ⭐ پێش ئەوەی cash upsert بکەین، یەک پشکنینی تر بکەین
-        // (لەوانەیە لەو ماوەی نێوانەی پێشوو format ڕوویداوە)
-        if (window._karoFormatting) return;
+        // ⭐⭐⭐ گرنگترین چارەسەر: ATOMIC CONDITIONAL UPDATE بۆ cash ⭐⭐⭐
+        // ئەگەر formatted_at لە سێرڤەر گۆڕاوە (واتە کاربەرێکی تر Format ی کردووە)،
+        // ئەو کاتە UPDATE هیچ نانووسێتەوە چونکە eq(formatted_at, localFormatted) match ناکات
+        if (!isFormatting()) {
+          try {
+            const localFormatted = localStorage.getItem("karo_formatted_" + project) || "";
+            
+            // یەکەم: پشکنین cash row هەیە یان نا
+            const { data: existingCash } = await supabase.from("cash").select("formatted_at").eq("project", project).maybeSingle();
+            
+            if (!existingCash) {
+              // Row نییە — INSERT بکە
+              await supabase.from("cash").insert([{
+                id: project,
+                project: project,
+                cashiqd: cashIQD,
+                cashusd: cashUSD,
+                exchangerate: exchangeRate,
+                cashlog: JSON.stringify(cashLogData),
+                formatted_at: localFormatted
+              }]);
+            } else {
+              const supabaseFormatted = existingCash.formatted_at || "";
+              
+              if (supabaseFormatted !== localFormatted) {
+                // Format ڕوویداوە — هیچ مەکە
+                console.log("[AutoSync] 🚨 Format detected before cash UPDATE — aborting");
+                return;
+              }
+              
+              // ⭐ ATOMIC UPDATE — تەنیا ئەگەر formatted_at هێشتا یەکسانە
+              // ئەگەر کاربەرێکی تر لەو کاتەدا Format بکات، ئەم UPDATE هیچ نانووسێتەوە
+              const { error: updateError } = await supabase
+                .from("cash")
+                .update({
+                  cashiqd: cashIQD,
+                  cashusd: cashUSD,
+                  exchangerate: exchangeRate,
+                  cashlog: JSON.stringify(cashLogData)
+                })
+                .eq("project", project)
+                .eq("formatted_at", supabaseFormatted);
+              
+              if (updateError) console.error("[AutoSync] cash update error:", updateError);
+            }
+          } catch (e) { console.error("[AutoSync] cash sync error:", e); }
+        }
 
-        await supabase.from("cash").upsert([{ id: project, project: project, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + project) || "" }]);
-
-        // ⭐ cashLog → cash_history sync (offline-resilience)
-        if (cashLogData.length > 0) {
+        // cashLog → cash_history sync
+        if (cashLogData.length > 0 && !isFormatting()) {
           try {
             const { data: histData } = await supabase.from("cash_history").select("id").eq("project", project);
             const remoteIds = new Set((histData || []).map(h => h.id));
             const toInsert = cashLogData
               .filter(log => log.id && !remoteIds.has(log.id))
-              .map(log => ({
-                id: log.id,
-                project: project,
-                amountiqd: N(log.iqd),
-                amountusd: N(log.usd),
-                note: S(log.desc || "")
-              }));
-            if (toInsert.length > 0) {
-              console.log("[AutoSync] healing cash_history, inserting:", toInsert.length);
+              .map(log => ({ id: log.id, project: project, amountiqd: N(log.iqd), amountusd: N(log.usd), note: S(log.desc || "") }));
+            if (toInsert.length > 0 && !isFormatting()) {
               await supabase.from("cash_history").insert(toInsert);
             }
           } catch (e) { console.error("[AutoSync] cash_history heal error:", e); }
         }
 
-        if (users && users.length > 0) {
+        if (users && users.length > 0 && !isFormatting()) {
           for (var m = 0; m < users.length; m++) {
+            if (isFormatting()) break;
             var u = users[m];
             await supabase.from("users").upsert([{ username: u.username, password: u.password, project: u.project, label: u.label, isadmin: B(u.isAdmin), isfrozen: B(u.isFrozen) }]);
           }
-          var dbUsers = await supabase.from("users").select("username");
-          if (dbUsers.data) {
-            var localNames = users.map(function (u) { return u.username; });
-            for (var n = 0; n < dbUsers.data.length; n++) {
-              if (localNames.indexOf(dbUsers.data[n].username) === -1) {
-                await supabase.from("users").delete().eq("username", dbUsers.data[n].username);
+          if (!isFormatting()) {
+            var dbUsers = await supabase.from("users").select("username");
+            if (dbUsers.data) {
+              var localNames = users.map(u => u.username);
+              for (var n = 0; n < dbUsers.data.length; n++) {
+                if (isFormatting()) break;
+                if (localNames.indexOf(dbUsers.data[n].username) === -1) {
+                  await supabase.from("users").delete().eq("username", dbUsers.data[n].username);
+                }
               }
             }
           }
@@ -250,15 +228,14 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
 
     const onOnline = async () => {
       console.log("[AutoSync] online — immediate sync");
+      if (isFormatting()) return;
       await flushQueue();
       doSync();
     };
     window.addEventListener("online", onOnline);
 
     const onFocus = () => {
-      if (navigator.onLine) {
-        flushQueue();
-      }
+      if (navigator.onLine && !isFormatting()) flushQueue();
     };
     window.addEventListener("focus", onFocus);
 
