@@ -22,7 +22,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
   const personsHashRef = useRef("");
   const cashPollRef = useRef(null);
   const fullPollRef = useRef(null);
-  const reloadingRef = useRef(false); // ⭐ بۆ ڕێگرتن لە چەند reload
+  const reloadingRef = useRef(false);
 
   useEffect(() => {
     if (!project) return;
@@ -46,7 +46,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
 
     // ============ FETCH TABLE ============
     const fetchTable = async (table, localKey, mapper) => {
-      if (reloadingRef.current) return; // ⭐ ئەگەر reload دەکات، هیچ مەکە
+      if (reloadingRef.current) return;
       try {
         const { data, error } = await supabase.from(table).select("*").eq("project", project);
         if (error || !data) return;
@@ -63,7 +63,6 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     };
 
     // ============ FETCH CASH ============
-    // ⭐ گرنگ: cash table-ـی Supabase سەرچاوەی ڕاستە
     const fetchCash = async () => {
       if (reloadingRef.current) return;
       try {
@@ -78,16 +77,17 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
         const formattedAt = cashData.formatted_at || "";
 
         // ⭐⭐⭐ FORMAT DETECTION (پشکنینی Format) ⭐⭐⭐
-        // ئەگەر formatted_at لە سێرڤەر گۆڕاوە، واتە کاربەرێکی تر Format-ـی کردووە
         if (formattedAt) {
           const localFormatted = localStorage.getItem("karo_formatted_" + project);
           
-          // ئەگەر localFormatted هەبوو و گۆڕاوە، واتە Format ڕوویداوە — RELOAD
           if (localFormatted && localFormatted !== formattedAt) {
-            console.log("[RealtimeSync] 🚨 FORMAT DETECTED — reloading page");
+            console.log("[RealtimeSync] 🚨 FORMAT DETECTED — blocking AutoSync + reloading");
+            
+            // ⭐⭐⭐ گرنگ: یەکەم فلاگی Format دانێ — AutoSync یەکسەر بلۆک دەبێت
+            window._karoFormatting = true;
             reloadingRef.current = true;
             
-            // ١. localStorage بە تەواوی پاک بکەرەوە
+            // localStorage بە تەواوی پاک بکەرەوە
             localStorage.setItem("karo_formatted_" + project, formattedAt);
             localStorage.setItem("karo_exp_" + project, "[]");
             localStorage.setItem("karo_conc_" + project, "[]");
@@ -98,14 +98,14 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
             localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(0));
             localStorage.setItem("karo_cashLog_" + project, "[]");
             
-            // ٢. ٢٠٠ ملی چرکە چاوەڕێ بکە تا localStorage save ببێت، دواتر reload
+            // ٢٠٠ ملی چرکە چاوەڕێ، دواتر reload
             setTimeout(() => {
               window.location.reload();
             }, 200);
             return;
           }
           
-          // ئەگەر یەکەم جار بێت (localFormatted نییە)، تەنها save بکە — reload نا
+          // یەکەم جار: تەنها save بکە
           if (!localFormatted) {
             localStorage.setItem("karo_formatted_" + project, formattedAt);
           }
@@ -168,7 +168,7 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     // ============ FETCH ALL ============
     const fetchAll = async () => {
       if (!navigator.onLine || reloadingRef.current) return;
-      // ⭐ گرنگ: یەکەم cash بپشکنە — ئەگەر format بوو reload دەکات
+      // ⭐ یەکەم cash بپشکنە — ئەگەر format بوو reload دەکات
       await fetchCash();
       if (reloadingRef.current) return;
       await Promise.all([
