@@ -1132,6 +1132,9 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
     if (fmtUser === "admin" && fmtPass === "karo2024") {
       const formatTimestamp = new Date().toISOString();
       
+      // ⭐ فلاگی Format دانێ — AutoSync ئاگادار دەبێت و هیچ upload ناکات
+      window._karoFormatting = true;
+      
       // ============ هەنگاوی ١: localStorage پاک بکەرەوە ============
       const keys = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -1205,6 +1208,7 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       setFmtUser("");
       setFmtPass("");
       alert(t.formatSuccess);
+      // ⭐ فلاگ هەر چالاک دەمێنێتەوە تا reload (ئەو کاتە state سفر دەبێت)
       setTimeout(() => { window.location.href = "/"; }, 500);
     }
   };
