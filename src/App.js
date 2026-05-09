@@ -677,27 +677,16 @@ export default function App() {
         try {
           const { data: cashData } = await supabase.from("cash").select("*").eq("project", pk);
           if (cashData && cashData[0]) {
-            // cash_history لە Supabase بخوێنەوە و جەمع بکە
-            try {
-              const { data: histData } = await supabase.from("cash_history").select("amountiqd,amountusd").eq("project", pk);
-              if (histData && histData.length > 0) {
-                const totalIQD = histData.reduce((a, b) => a + Number(b.amountiqd || 0), 0);
-                const totalUSD = histData.reduce((a, b) => a + Number(b.amountusd || 0), 0);
-                localStorage.setItem("karo_cashIQD_" + pk, JSON.stringify(totalIQD));
-                localStorage.setItem("karo_cashUSD_" + pk, JSON.stringify(totalUSD));
-                window._cashUpdatedByMe = false;
-                setCashIQD(totalIQD);
-                setCashUSD(totalUSD);
-              } else {
-                window._cashUpdatedByMe = false;
-                setCashIQD(cashData[0].cashiqd || 0);
-                setCashUSD(cashData[0].cashusd || 0);
-              }
-            } catch(e) {
-              window._cashUpdatedByMe = false;
-              setCashIQD(cashData[0].cashiqd || 0);
-              setCashUSD(cashData[0].cashusd || 0);
-            }
+            // ⭐⭐⭐ cash table سەرچاوەی ڕاستە — نەک کۆی cash_history
+            // ئەمە چارەسەری کێشەی format-ـە: cash_history لەوانەیە race هەبێت بەڵام
+            // cash.cashiqd بە atomic UPDATE لە AutoSync پارێزراوە
+            const realIQD = Number(cashData[0].cashiqd || 0);
+            const realUSD = Number(cashData[0].cashusd || 0);
+            localStorage.setItem("karo_cashIQD_" + pk, JSON.stringify(realIQD));
+            localStorage.setItem("karo_cashUSD_" + pk, JSON.stringify(realUSD));
+            window._cashUpdatedByMe = false;
+            setCashIQD(realIQD);
+            setCashUSD(realUSD);
             setExchangeRate(cashData[0].exchangerate || 1500);
             if (cashData[0].cashlog) {
               const remotelog = JSON.parse(cashData[0].cashlog || "[]");
