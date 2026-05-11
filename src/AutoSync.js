@@ -79,8 +79,18 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
 
     const readyTimer = setTimeout(() => { isReady.current = true; }, 5000);
 
-    // ⭐ helper بۆ پشکنینی فلاگ — لە چەند شوێن بانگ دەکرێت
     const isFormatting = () => window._karoFormatting === true;
+
+    // ⭐⭐⭐ ATOMIC CONDITIONAL UPDATE - پشکنینی formatted_at پێش هەر upsert ⭐⭐⭐
+    // ئەگەر formatted_at گۆڕابێت لە کاتێکدا کە ئێمە کارمان دەکرد، false دەگەڕێنێتەوە
+    const verifyFormatStillSame = async (capturedFmt) => {
+      try {
+        const { data } = await supabase.from("cash").select("formatted_at").eq("project", project).maybeSingle();
+        if (!data) return true;
+        const currentFmt = data.formatted_at || "";
+        return currentFmt === capturedFmt;
+      } catch (e) { return true; }
+    };
 
     const doSync = async () => {
       if (!isReady.current) return;
@@ -88,25 +98,23 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
       if (isFormatting()) { console.log("[AutoSync] 🚨 format flag set — skipping"); return; }
 
       try {
-        // ⭐⭐⭐ هەنگاوی ١: یەکەم پشکنینی formatted_at لە سێرڤەر ⭐⭐⭐
-        let supabaseFormattedAtStart = null;
+        // هەنگاوی ١: formatted_at لە سێرڤەر بگرە
+        let capturedFormatted = "";
         try {
           const { data: cashCheck } = await supabase.from("cash").select("formatted_at").eq("project", project).maybeSingle();
           if (cashCheck) {
-            supabaseFormattedAtStart = cashCheck.formatted_at || "";
+            capturedFormatted = cashCheck.formatted_at || "";
             const localFormatted = localStorage.getItem("karo_formatted_" + project) || "";
-            if (supabaseFormattedAtStart && localFormatted && localFormatted !== supabaseFormattedAtStart) {
+            if (capturedFormatted && localFormatted && localFormatted !== capturedFormatted) {
               console.log("[AutoSync] 🚨 FORMAT DETECTED at start — aborting");
               return;
             }
-            // یەکەم جار ـ تەنها save بکە
-            if (!localFormatted && supabaseFormattedAtStart) {
-              localStorage.setItem("karo_formatted_" + project, supabaseFormattedAtStart);
+            if (!localFormatted && capturedFormatted) {
+              localStorage.setItem("karo_formatted_" + project, capturedFormatted);
             }
           }
         } catch (e) { console.error("[AutoSync] format check error:", e); }
 
-        // ⭐ Queue flush
         await flushQueue();
         if (isFormatting()) return;
 
@@ -122,34 +130,60 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
         if (hash === lastHash.current) return;
         lastHash.current = hash;
 
-        // ⭐ پشکنین پێش هەر upsert
+        // ⭐⭐⭐ پێش هەر upsert: دیسان formatted_at پشکنین بکە ⭐⭐⭐
+        
         if (loans.length > 0 && !isFormatting()) {
+          if (!(await verifyFormatStillSame(capturedFormatted))) {
+            console.log("[AutoSync] 🚨 format detected before loans — aborting");
+            return;
+          }
           var rows3 = loans.map(ln => ({ id: ln.id, project: project, date: S(ln.date), type: S(ln.type), personname: S(ln.personName), amountiqd: N(ln.amountIQD), amountusd: N(ln.amountUSD), note: S(ln.note), returned: B(ln.returned), marked: B(ln.marked) }));
           await supabase.from("loans").upsert(rows3);
         }
 
         if (contr.length > 0 && !isFormatting()) {
+          if (!(await verifyFormatStillSame(capturedFormatted))) {
+            console.log("[AutoSync] 🚨 format detected before contractor — aborting");
+            return;
+          }
           var rows4 = contr.map(cn => ({ id: cn.id, project: project, date: S(cn.date), type: S(cn.type), personname: S(cn.personName), amountiqd: N(cn.amountIQD), amountusd: N(cn.amountUSD), note: S(cn.note), marked: B(cn.marked) }));
           await supabase.from("contractor").upsert(rows4);
         }
 
         if (inv.length > 0 && !isFormatting()) {
+          if (!(await verifyFormatStillSame(capturedFormatted))) {
+            console.log("[AutoSync] 🚨 format detected before invoices — aborting");
+            return;
+          }
           var rows5 = inv.map(invoice => ({ id: invoice.id, project: project, date: S(invoice.date), invoiceno: S(invoice.invoiceNo), currency: S(invoice.currency), billto: S(invoice.billTo), billphone: S(invoice.billPhone), items: JSON.stringify(invoice.items || []), total: N(invoice.total), marked: B(invoice.marked) }));
           await supabase.from("invoices").upsert(rows5);
         }
 
-        // ⭐⭐⭐ گرنگترین چارەسەر: ATOMIC CONDITIONAL UPDATE بۆ cash ⭐⭐⭐
-        // ئەگەر formatted_at لە سێرڤەر گۆڕاوە (واتە کاربەرێکی تر Format ی کردووە)،
-        // ئەو کاتە UPDATE هیچ نانووسێتەوە چونکە eq(formatted_at, localFormatted) match ناکات
+        if (exp.length > 0 && !isFormatting()) {
+          if (!(await verifyFormatStillSame(capturedFormatted))) {
+            console.log("[AutoSync] 🚨 format detected before expenses — aborting");
+            return;
+          }
+          var rows1 = exp.map(e => ({ id: e.id, project: project, date: S(e.date), amountiqd: N(e.amountIQD), amountusd: N(e.amountUSD), receiptno: S(e.receiptNo), note: S(e.note), marked: B(e.marked) }));
+          await supabase.from("expenses").upsert(rows1);
+        }
+
+        if (conc.length > 0 && !isFormatting()) {
+          if (!(await verifyFormatStillSame(capturedFormatted))) {
+            console.log("[AutoSync] 🚨 format detected before concrete — aborting");
+            return;
+          }
+          var rows2 = conc.map(c => ({ id: c.id, project: project, date: S(c.date), currency: S(c.currency || "iqd"), meters: N(c.meters), pricepermeter: N(c.pricePerMeter), totalprice: N(c.totalPrice), deposit: N(c.deposit), depositpercent: N(c.depositPercent), received: N(c.received), isreceived: B(c.isReceived), depositclaimed: B(c.depositClaimed), note: S(c.note), marked: B(c.marked), paidamount: N(c.paidAmount), payments: JSON.stringify(c.payments || []) }));
+          await supabase.from("concrete").upsert(rows2);
+        }
+
+        // ⭐⭐⭐ ATOMIC CONDITIONAL UPDATE بۆ cash ⭐⭐⭐
         if (!isFormatting()) {
           try {
             const localFormatted = localStorage.getItem("karo_formatted_" + project) || "";
-            
-            // یەکەم: پشکنین cash row هەیە یان نا
             const { data: existingCash } = await supabase.from("cash").select("formatted_at").eq("project", project).maybeSingle();
             
             if (!existingCash) {
-              // Row نییە — INSERT بکە
               await supabase.from("cash").insert([{
                 id: project,
                 project: project,
@@ -163,13 +197,10 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
               const supabaseFormatted = existingCash.formatted_at || "";
               
               if (supabaseFormatted !== localFormatted) {
-                // Format ڕوویداوە — هیچ مەکە
                 console.log("[AutoSync] 🚨 Format detected before cash UPDATE — aborting");
                 return;
               }
               
-              // ⭐ ATOMIC UPDATE — تەنیا ئەگەر formatted_at هێشتا یەکسانە
-              // ئەگەر کاربەرێکی تر لەو کاتەدا Format بکات، ئەم UPDATE هیچ نانووسێتەوە
               const { error: updateError } = await supabase
                 .from("cash")
                 .update({
@@ -186,8 +217,11 @@ export default function AutoSync({ project, cashIQD, cashUSD, exchangeRate, user
           } catch (e) { console.error("[AutoSync] cash sync error:", e); }
         }
 
-        // cashLog → cash_history sync
         if (cashLogData.length > 0 && !isFormatting()) {
+          if (!(await verifyFormatStillSame(capturedFormatted))) {
+            console.log("[AutoSync] 🚨 format detected before cash_history — aborting");
+            return;
+          }
           try {
             const { data: histData } = await supabase.from("cash_history").select("id").eq("project", project);
             const remoteIds = new Set((histData || []).map(h => h.id));
