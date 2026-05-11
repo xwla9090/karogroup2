@@ -117,6 +117,17 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
         const cashHash = realCashIQD + ":" + realCashUSD + ":" + exchangeRate + ":" + cashlog.length + ":" + formattedAt;
 
         if (cashHash === cashHashRef.current) return;
+        
+        // ⭐⭐⭐ گرنگ: ئەگەر local update تازە ڕوویدابێت (کەمتر لە ٤ چرکە)
+        // داتای سێرڤەر بەسەر local state ـدا نەخە — لەوانەیە Supabase
+        // هێشتا داتای کۆنی هەبێت چونکە safeUpdateCash تەواو نەبووە
+        const localUpdateAge = Date.now() - (window._cashLocalUpdateTime || 0);
+        if (localUpdateAge < 4000) {
+          console.log("[RealtimeSync] ⏱️ skipping cash sync — recent local update (" + (localUpdateAge/1000).toFixed(1) + "s ago)");
+          // hash ـیش تۆمار مەکە — تا کاتێک سێرڤەر کاتی پێ بێت، دیسان بپشکنە
+          return;
+        }
+        
         cashHashRef.current = cashHash;
 
         localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(realCashIQD));

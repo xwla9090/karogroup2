@@ -11,6 +11,20 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
     console.log("[safeUpdateCash] 🚨 _karoFormatting=true — skip");
     return { skipped: "formatting" };
   }
+  
+  // ⭐⭐⭐ گرنگ: localStorage یەکسەر نوێ بکە
+  // ئەمە لە race ـی RealtimeSync دەپارێزێت — ئەگەر fetchCash پێش
+  // ئەوەی Supabase تەواو ببێت بێت، localStorage کارا و درووستە
+  try {
+    localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(cashIQD));
+    localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(cashUSD));
+  } catch (e) {}
+  
+  // ⭐⭐⭐ کاتژمێری local update تۆمار بکە (٤ چرکە lock)
+  // RealtimeSync ـی هەمان browser لەم ماوەیە نابێت
+  // داتای Supabase ـی کۆن بەسەر local state ـدا بخاتە سەری
+  window._cashLocalUpdateTime = Date.now();
+  
   try {
     const localFormatted = localStorage.getItem("karo_formatted_" + pKey) || "";
     const { data: existingCash, error: selectError } = await supabase
