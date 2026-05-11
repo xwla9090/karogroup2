@@ -3,6 +3,101 @@ import AutoSync from "./AutoSync";
 import RealtimeSync from "./RealtimeSync";
 import { supabase } from "./supabase";
 
+// ==================== SAFE CASH UPDATE HELPER ====================
+// ئەم helper-ـە هەموو نووسینەکان بۆ cash تەیبڵ بە atomic دەکات
+// و پاراستنی تەواوی هەیە لە دژی race ـی Format
+async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
+  if (window._karoFormatting === true) {
+    console.log("[safeUpdateCash] 🚨 _karoFormatting=true — skip");
+    return { skipped: "formatting" };
+  }
+  try {
+    const localFormatted = localStorage.getItem("karo_formatted_" + pKey) || "";
+    const { data: existingCash, error: selectError } = await supabase
+      .from("cash")
+      .select("formatted_at")
+      .eq("project", pKey)
+      .maybeSingle();
+    
+    if (selectError) {
+      console.error("[safeUpdateCash] select error:", selectError);
+      return { error: selectError };
+    }
+    
+    if (!existingCash) {
+      // هیچ ڕێزێک نییە — یەکێک دروست بکە
+      console.log("[safeUpdateCash] ⚠️ no cash row — inserting fresh");
+      const { error } = await supabase.from("cash").insert([{
+        id: pKey,
+        project: pKey,
+        cashiqd: cashIQD,
+        cashusd: cashUSD,
+        exchangerate: exchangeRate,
+        cashlog: cashlog,
+        formatted_at: localFormatted
+      }]);
+      if (error) console.error("[safeUpdateCash] insert error:", error);
+      return { inserted: true };
+    }
+    
+    const supabaseFormatted = existingCash.formatted_at || "";
+    
+    // پشکنینی formatted_at — ئەگەر گۆڕابێت، Format ڕوویداوە
+    if (supabaseFormatted !== localFormatted) {
+      console.log("[safeUpdateCash] 🚨 formatted_at mismatch (local=" + localFormatted + ", server=" + supabaseFormatted + ") — FORMAT DETECTED, reloading");
+      window._karoFormatting = true;
+      // localStorage پاک بکەرەوە
+      localStorage.setItem("karo_formatted_" + pKey, supabaseFormatted);
+      localStorage.setItem("karo_exp_" + pKey, "[]");
+      localStorage.setItem("karo_conc_" + pKey, "[]");
+      localStorage.setItem("karo_loans_" + pKey, "[]");
+      localStorage.setItem("karo_contr_" + pKey, "[]");
+      localStorage.setItem("karo_inv_" + pKey, "[]");
+      localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
+      localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
+      localStorage.setItem("karo_cashLog_" + pKey, "[]");
+      setTimeout(() => window.location.reload(), 200);
+      return { skipped: "format_detected" };
+    }
+    
+    // ATOMIC UPDATE — تەنها ئەگەر formatted_at هێشتا یەکسانە
+    const { data, error } = await supabase
+      .from("cash")
+      .update({
+        cashiqd: cashIQD,
+        cashusd: cashUSD,
+        exchangerate: exchangeRate,
+        cashlog: cashlog
+      })
+      .eq("project", pKey)
+      .eq("formatted_at", supabaseFormatted)
+      .select();
+    
+    if (error) {
+      console.error("[safeUpdateCash] update error:", error);
+      return { error };
+    }
+    
+    if (!data || data.length === 0) {
+      console.log("[safeUpdateCash] ⚠️ atomic update matched 0 rows — race detected (format happened mid-flight), reloading");
+      window._karoFormatting = true;
+      setTimeout(() => window.location.reload(), 200);
+      return { raceDetected: true };
+    }
+    
+    console.log("[safeUpdateCash] ✅ updated cashIQD=" + cashIQD + " cashUSD=" + cashUSD);
+    return { success: true };
+  } catch (e) {
+    console.error("[safeUpdateCash] exception:", e);
+    return { error: e };
+  }
+}
+
+// ئەم helper-ـە لە window دانێ بۆ ئەوەی هەموو شوێنێک بتوانێت بەکاری بهێنێت
+if (typeof window !== "undefined") {
+  window.__karoSafeUpdateCash = safeUpdateCash;
+}
+
 // ==================== CONFIG ====================
 const PRIMARY = "#4DAF94";
 const PRIMARY_DARK = "#3D9A82";
@@ -647,7 +742,8 @@ export default function App() {
     if (!window._cashUpdatedByMe) return;
     window._cashUpdatedByMe = false;
     const cashLogData = JSON.parse(localStorage.getItem("karo_cashLog_" + pKey) || "[]");
-    supabase.from("cash").upsert([{ id: pKey, project: pKey, cashiqd: cashIQD, cashusd: cashUSD, exchangerate: exchangeRate, cashlog: JSON.stringify(cashLogData), formatted_at: localStorage.getItem("karo_formatted_" + pKey) || "" }]);
+    // ⭐ بەکارهێنانی safeUpdateCash — atomic + protected لە دژی Format race
+    safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, JSON.stringify(cashLogData));
   }, [cashIQD, cashUSD, exchangeRate, pKey]);
   useEffect(() => {
     if (loggedUser && !loggedUser.isAdmin) {
@@ -695,27 +791,26 @@ export default function App() {
             }
           } else {
             // cash بەتاڵە — format کراوەتەوە — localStorage یش رەش بکەرەوە
-            cashRemoteRef.current = true;
+            window._cashUpdatedByMe = false;
             setCashIQD(0);
-            cashRemoteRef.current = true;
             setCashUSD(0);
-            cashRemoteRef.current = true;
             setExchangeRate(1500);
             localStorage.setItem("karo_exp_" + pk, JSON.stringify([]));
             localStorage.setItem("karo_conc_" + pk, JSON.stringify([]));
             localStorage.setItem("karo_loans_" + pk, JSON.stringify([]));
             localStorage.setItem("karo_contr_" + pk, JSON.stringify([]));
+            localStorage.setItem("karo_inv_" + pk, JSON.stringify([]));
             localStorage.setItem("karo_cashIQD_" + pk, JSON.stringify(0));
             localStorage.setItem("karo_cashUSD_" + pk, JSON.stringify(0));
+            localStorage.setItem("karo_cashLog_" + pk, JSON.stringify([]));
             window.dispatchEvent(new Event("karoDataUpdate"));
           }
           setCashLog(getLS(`karo_cashLog_${pk}`, []));
         } catch(e) {
-          cashRemoteRef.current = true;
+          console.error("[fetchFromSupabase] error:", e);
+          window._cashUpdatedByMe = false;
           setCashIQD(getLS(`karo_cashIQD_${pk}`, 0));
-          cashRemoteRef.current = true;
           setCashUSD(getLS(`karo_cashUSD_${pk}`, 0));
-          cashRemoteRef.current = true;
           setExchangeRate(getLS(`karo_rate_${pk}`, 1500));
           setCashLog(getLS(`karo_cashLog_${pk}`, []));
         }
@@ -1148,24 +1243,10 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       setCashLog([]);
       setExchangeRate(1500);
       
-      // ============ هەنگاوی ٣: AutoSync لاد توا چرکە چاوەڕێ بکە ============
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // ============ هەنگاوی ٤: هەموو تەیبڵەکانی Supabase پاک بکەرەوە ============
-      // ⭐ گرنگ: cash_history-ـیش پاک بکەرەوە — ئەم تەیبڵە سەرچاوەی drift-ی قاسەیە
-      try {
-        await Promise.all([
-          supabase.from("expenses").delete().eq("project", pKey),
-          supabase.from("concrete").delete().eq("project", pKey),
-          supabase.from("loans").delete().eq("project", pKey),
-          supabase.from("contractor").delete().eq("project", pKey),
-          supabase.from("invoices").delete().eq("project", pKey),
-          supabase.from("cash_history").delete().eq("project", pKey)
-        ]);
-      } catch(e) { console.error("[Format] delete tables error:", e); }
-      
-      // ============ هەنگاوی ٥: cash تەیبڵ بە سفر و formatted_at نوێ بکەرەوە ============
-      // ⭐⭐⭐ Defensive: چەند جار upsert بکە و verify بکە تا race هیچ نەهێڵێت ⭐⭐⭐
+      // ⭐⭐⭐ هەنگاوی نوێی ٣ (KEY FIX): cash بە formatted_at ـی نوێ یەکەم بنووسە
+      // ئەمە سیگنال دەنێرێت بۆ هەموو براوزەرەکانی دیکە کە Format ڕوویداوە
+      // پێش ئەوەی هیچ شتێک بسڕەوە — تا AutoSync ـی Firefox abort بکات
+      console.log("[Format] 🔵 step 3: writing new formatted_at FIRST (signal other browsers)");
       const upsertCashZero = async () => {
         try {
           await supabase.from("cash").upsert([{
@@ -1180,8 +1261,30 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
           return true;
         } catch(e) { console.error("[Format] cash upsert error:", e); return false; }
       };
+      await upsertCashZero();
       
-      // یەکەم upsert
+      // ============ هەنگاوی ٤ (نوێ): چاوەڕێ بکە بۆ ئەوەی براوسەرەکانی تر فۆرماتیان بدۆزنەوە ============
+      // ⭐ ٢.٥ چرکە چاوەڕێ بکە:
+      //    - RealtimeSync ـی براوسەرەکانی تر هەر ٢ چرکە polling دەکات → Format دەدۆزنەوە → reload
+      //    - AutoSync ـی in-flight لە براوسەرەکانی تر per-batch verify دەکات → abort دەکات
+      console.log("[Format] 🟡 step 4: waiting 2500ms for other browsers to detect format and abort...");
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      
+      // ============ هەنگاوی ٥: ئێستا سەلامەتە — هەموو تەیبڵەکان بسڕەوە ============
+      console.log("[Format] 🔴 step 5: deleting all data tables");
+      try {
+        await Promise.all([
+          supabase.from("expenses").delete().eq("project", pKey),
+          supabase.from("concrete").delete().eq("project", pKey),
+          supabase.from("loans").delete().eq("project", pKey),
+          supabase.from("contractor").delete().eq("project", pKey),
+          supabase.from("invoices").delete().eq("project", pKey),
+          supabase.from("cash_history").delete().eq("project", pKey)
+        ]);
+      } catch(e) { console.error("[Format] delete tables error:", e); }
+      
+      // ============ هەنگاوی ٦: cash دیسان بنووسە بۆ دڵنیابوون ============
+      console.log("[Format] 🟢 step 6: re-verifying cash is clean");
       await upsertCashZero();
       
       // ⭐ Verify loop: ٥ جار پشکنین بکە (هەر ٥٠٠ ملی چرکە)
@@ -2675,7 +2778,8 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       
       const updatedItem = {...editItem, ...form, personName: pName};
       setItems(prev => prev.map(i => i.id===editItem.id ? updatedItem : i));
-      // ⭐ یەکسەر لە Supabase نوێ بکە
+      // ⭐ پشکنینی Format پێش هەر شت
+      if (window._karoFormatting) { console.log("[LoansPage edit] format detected, skip"); setEditModalOpen(false); return; }
       try {
         await supabase.from("loans").upsert([{
           id: updatedItem.id, project: pKey, date: String(updatedItem.date||""), 
@@ -2683,14 +2787,15 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
           amountiqd: Number(updatedItem.amountIQD||0), amountusd: Number(updatedItem.amountUSD||0),
           note: String(updatedItem.note||""), returned: !!updatedItem.returned, marked: !!updatedItem.marked
         }]);
-        // ⭐ یەکسەر cash table نوێ بکەرەوە
-        await supabase.from("cash").upsert([{
-          id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
-          exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
-          cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
-          formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
-        }]);
-      } catch(e) { console.error(e); }
+        // ⭐ بەکارهێنانی safeUpdateCash — atomic + protected
+        if (window.__karoSafeUpdateCash) {
+          await window.__karoSafeUpdateCash(
+            pKey, newCashIQD, newCashUSD,
+            Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+            localStorage.getItem("karo_cashLog_" + pKey) || "[]"
+          );
+        }
+      } catch(e) { console.error("[LoansPage edit]", e); }
       setEditModalOpen(false);
     } else {
       let newCashIQD = cashIQD, newCashUSD = cashUSD;
@@ -2710,7 +2815,8 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       }
       const newItem = {...form, personName: pName, id: genId(), marked: false, returned: false};
       setItems(prev => [newItem, ...prev]);
-      // ⭐ یەکسەر لە Supabase زیاد بکە
+      // ⭐ پشکنینی Format پێش هەر شت
+      if (window._karoFormatting) { console.log("[LoansPage new] format detected, skip"); setShowForm(false); return; }
       try {
         await supabase.from("loans").upsert([{
           id: newItem.id, project: pKey, date: String(newItem.date||""), 
@@ -2718,14 +2824,15 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
           amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0),
           note: String(newItem.note||""), returned: !!newItem.returned, marked: !!newItem.marked
         }]);
-        // ⭐ یەکسەر cash table نوێ بکەرەوە
-        await supabase.from("cash").upsert([{
-          id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
-          exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
-          cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
-          formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
-        }]);
-      } catch(e) { console.error(e); }
+        // ⭐ بەکارهێنانی safeUpdateCash
+        if (window.__karoSafeUpdateCash) {
+          await window.__karoSafeUpdateCash(
+            pKey, newCashIQD, newCashUSD,
+            Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+            localStorage.getItem("karo_cashLog_" + pKey) || "[]"
+          );
+        }
+      } catch(e) { console.error("[LoansPage new]", e); }
       setShowForm(false);
     }
     resetForm(); 
@@ -2762,7 +2869,8 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     }
 
     setItems(prev => prev.map(i => i.id === id ? { ...i, returned: true, amountIQD: 0, amountUSD: 0 } : i));
-    // ⭐ یەکسەر لە Supabase نوێ بکە
+    // ⭐ پشکنینی Format پێش هەر شت
+    if (window._karoFormatting) { console.log("[LoansPage return] format detected, skip"); setConfirmReturn(null); return; }
     try {
       await supabase.from("loans").upsert([{
         id: item.id, project: pKey, date: String(item.date||""), 
@@ -2770,14 +2878,15 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
         amountiqd: 0, amountusd: 0,
         note: String(item.note||""), returned: true, marked: !!item.marked
       }]);
-      // ⭐ یەکسەر cash table نوێ بکەرەوە
-      await supabase.from("cash").upsert([{
-        id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
-        exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
-        cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
-        formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
-      }]);
-    } catch(e) { console.error(e); }
+      // ⭐ بەکارهێنانی safeUpdateCash
+      if (window.__karoSafeUpdateCash) {
+        await window.__karoSafeUpdateCash(
+          pKey, newCashIQD, newCashUSD,
+          Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+          localStorage.getItem("karo_cashLog_" + pKey) || "[]"
+        );
+      }
+    } catch(e) { console.error("[LoansPage return]", e); }
     window.dispatchEvent(new Event("karoLocalChange"));
     setConfirmReturn(null);
   };
@@ -2806,19 +2915,19 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       }
     }
     setItems(prev => prev.filter(i=>i.id!==id));
-    // ⭐ یەکسەر لە Supabase بسڕەوە
+    // ⭐ پشکنینی Format پێش هەر شت
+    if (window._karoFormatting) { console.log("[LoansPage delete] format detected, skip"); setConfirmDel(null); return; }
     try { 
       await supabase.from("loans").delete().eq("id", id);
-      // ⭐ یەکسەر cash table نوێ بکەرەوە
-      if (item && !item.returned) {
-        await supabase.from("cash").upsert([{
-          id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
-          exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
-          cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
-          formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
-        }]);
+      // ⭐ بەکارهێنانی safeUpdateCash
+      if (item && !item.returned && window.__karoSafeUpdateCash) {
+        await window.__karoSafeUpdateCash(
+          pKey, newCashIQD, newCashUSD,
+          Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+          localStorage.getItem("karo_cashLog_" + pKey) || "[]"
+        );
       }
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error("[LoansPage delete]", e); }
     setConfirmDel(null);
   };
 
@@ -3979,7 +4088,8 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
       }
       const updatedItem = {...editItem, ...form, personName: pName};
       setItems(prev => prev.map(i => i.id===editItem.id ? updatedItem : i));
-      // ⭐ یەکسەر لە Supabase نوێ بکە
+      // ⭐ پشکنینی Format پێش هەر شت
+      if (window._karoFormatting) { console.log("[ContractorPage edit] format detected, skip"); setEditModalOpen(false); return; }
       try {
         await supabase.from("contractor").upsert([{
           id: updatedItem.id, project: pKey, date: String(updatedItem.date||""), 
@@ -3987,14 +4097,15 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
           amountiqd: Number(updatedItem.amountIQD||0), amountusd: Number(updatedItem.amountUSD||0),
           note: String(updatedItem.note||""), marked: !!updatedItem.marked
         }]);
-        // ⭐ یەکسەر cash table نوێ بکەرەوە
-        await supabase.from("cash").upsert([{
-          id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
-          exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
-          cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
-          formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
-        }]);
-      } catch(e) { console.error(e); }
+        // ⭐ بەکارهێنانی safeUpdateCash
+        if (window.__karoSafeUpdateCash) {
+          await window.__karoSafeUpdateCash(
+            pKey, newCashIQD, newCashUSD,
+            Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+            localStorage.getItem("karo_cashLog_" + pKey) || "[]"
+          );
+        }
+      } catch(e) { console.error("[ContractorPage edit]", e); }
       setEditModalOpen(false);
     } else {
       let newCashIQD = cashIQD, newCashUSD = cashUSD;
@@ -4014,7 +4125,8 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
       }
       const newItem = {...form, personName: pName, id: genId(), marked: false};
       setItems(prev => [newItem, ...prev]);
-      // ⭐ یەکسەر لە Supabase زیاد بکە
+      // ⭐ پشکنینی Format پێش هەر شت
+      if (window._karoFormatting) { console.log("[ContractorPage new] format detected, skip"); setShowForm(false); return; }
       try {
         await supabase.from("contractor").upsert([{
           id: newItem.id, project: pKey, date: String(newItem.date||""), 
@@ -4022,14 +4134,15 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
           amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0),
           note: String(newItem.note||""), marked: !!newItem.marked
         }]);
-        // ⭐ یەکسەر cash table نوێ بکەرەوە
-        await supabase.from("cash").upsert([{
-          id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
-          exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
-          cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
-          formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
-        }]);
-      } catch(e) { console.error(e); }
+        // ⭐ بەکارهێنانی safeUpdateCash
+        if (window.__karoSafeUpdateCash) {
+          await window.__karoSafeUpdateCash(
+            pKey, newCashIQD, newCashUSD,
+            Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+            localStorage.getItem("karo_cashLog_" + pKey) || "[]"
+          );
+        }
+      } catch(e) { console.error("[ContractorPage new]", e); }
       setShowForm(false);
     }
     resetForm(); 
@@ -4059,19 +4172,19 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
       }
     }
     setItems(prev => prev.filter(i=>i.id!==id));
-    // ⭐ یەکسەر لە Supabase بسڕەوە
+    // ⭐ پشکنینی Format پێش هەر شت
+    if (window._karoFormatting) { console.log("[ContractorPage delete] format detected, skip"); setConfirmDel(null); return; }
     try { 
       await supabase.from("contractor").delete().eq("id", id);
-      // ⭐ یەکسەر cash table نوێ بکەرەوە
-      if (item) {
-        await supabase.from("cash").upsert([{
-          id: pKey, project: pKey, cashiqd: newCashIQD, cashusd: newCashUSD,
-          exchangerate: Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
-          cashlog: localStorage.getItem("karo_cashLog_" + pKey) || "[]",
-          formatted_at: localStorage.getItem("karo_formatted_" + pKey) || ""
-        }]);
+      // ⭐ بەکارهێنانی safeUpdateCash
+      if (item && window.__karoSafeUpdateCash) {
+        await window.__karoSafeUpdateCash(
+          pKey, newCashIQD, newCashUSD,
+          Number(localStorage.getItem("karo_rate_" + pKey) || 1500),
+          localStorage.getItem("karo_cashLog_" + pKey) || "[]"
+        );
       }
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error("[ContractorPage delete]", e); }
     setConfirmDel(null);
   };
 
