@@ -4957,26 +4957,169 @@ function BackupPage({ t, s, pKey, isFrozen }) {
     const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=`karo_backup_${pKey}_${today()}.json`; a.click();
   };
   
-  const handleUpload = e => {
+  const handleUpload = async (e) => {
     if (isFrozen) {
       alert(t.frozen);
       return;
     }
     
-    const f=e.target.files[0]; if(!f)return;
-    const r=new FileReader();
-    r.onload=ev=>{ 
-      try { 
-        const d=JSON.parse(ev.target.result); 
-        Object.entries(d).forEach(([k,v])=>localStorage.setItem(k,v)); 
-        alert(t.backupSuccess); 
-        window.location.reload(); 
-      } catch {
-        alert("Error");
-      }
-    };
-    r.readAsText(f); 
-    e.target.value="";
+    const f = e.target.files[0]; 
+    if (!f) return;
+    e.target.value = "";
+    
+    // فلاگی Format بەرز بکە تا چونە reload format-detection logic فریا نەکەوێت
+    window._karoFormatting = true;
+    
+    try {
+      // ============ هەنگاوی ١: فایل بخوێنەرەوە ============
+      const text = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = ev => resolve(ev.target.result);
+        r.onerror = () => reject(new Error("File read error"));
+        r.readAsText(f);
+      });
+      
+      const d = JSON.parse(text);
+      console.log("[BackupRestore] 🔵 backup loaded, keys: " + Object.keys(d).length);
+      
+      // ============ هەنگاوی ٢: formatted_at ـی نوێ دروست بکە ============
+      // ئەمە وەکوو Format کارلێک دەکات بۆ براوسەرە تر — ئەویان reload دەکەن
+      const restoreTimestamp = new Date().toISOString();
+      console.log("[BackupRestore] 🟡 new formatted_at: " + restoreTimestamp);
+      
+      // ============ هەنگاوی ٣: تەیبڵە کۆنەکان بسڕەوە لە Supabase ============
+      console.log("[BackupRestore] 🔴 deleting old data from Supabase");
+      try {
+        await Promise.all([
+          supabase.from("expenses").delete().eq("project", pKey),
+          supabase.from("concrete").delete().eq("project", pKey),
+          supabase.from("loans").delete().eq("project", pKey),
+          supabase.from("contractor").delete().eq("project", pKey),
+          supabase.from("invoices").delete().eq("project", pKey),
+          supabase.from("cash_history").delete().eq("project", pKey)
+        ]);
+      } catch(e) { console.error("[BackupRestore] delete error:", e); }
+      
+      // ============ هەنگاوی ٤: داتای backup بنووسە بۆ Supabase ============
+      console.log("[BackupRestore] 🟢 uploading backup data to Supabase");
+      
+      // loans
+      try {
+        const loans = JSON.parse(d["karo_loans_" + pKey] || "[]");
+        if (Array.isArray(loans) && loans.length > 0) {
+          const rows = loans.map(l => ({
+            id: l.id, project: pKey, date: String(l.date||""),
+            type: String(l.type||""), personname: String(l.personName||""),
+            amountiqd: Number(l.amountIQD||0), amountusd: Number(l.amountUSD||0),
+            note: String(l.note||""), returned: !!l.returned, marked: !!l.marked
+          }));
+          await supabase.from("loans").insert(rows);
+          console.log("[BackupRestore] uploaded " + rows.length + " loans");
+        }
+      } catch(e) { console.error("[BackupRestore] loans error:", e); }
+      
+      // contractor
+      try {
+        const contr = JSON.parse(d["karo_contr_" + pKey] || "[]");
+        if (Array.isArray(contr) && contr.length > 0) {
+          const rows = contr.map(c => ({
+            id: c.id, project: pKey, date: String(c.date||""),
+            type: String(c.type||""), personname: String(c.personName||""),
+            amountiqd: Number(c.amountIQD||0), amountusd: Number(c.amountUSD||0),
+            note: String(c.note||""), marked: !!c.marked
+          }));
+          await supabase.from("contractor").insert(rows);
+          console.log("[BackupRestore] uploaded " + rows.length + " contractor");
+        }
+      } catch(e) { console.error("[BackupRestore] contractor error:", e); }
+      
+      // expenses
+      try {
+        const exp = JSON.parse(d["karo_exp_" + pKey] || "[]");
+        if (Array.isArray(exp) && exp.length > 0) {
+          const rows = exp.map(x => ({
+            id: x.id, project: pKey, date: String(x.date||""),
+            amountiqd: Number(x.amountIQD||0), amountusd: Number(x.amountUSD||0),
+            receiptno: String(x.receiptNo||""), note: String(x.note||""), marked: !!x.marked
+          }));
+          await supabase.from("expenses").insert(rows);
+          console.log("[BackupRestore] uploaded " + rows.length + " expenses");
+        }
+      } catch(e) { console.error("[BackupRestore] expenses error:", e); }
+      
+      // concrete
+      try {
+        const conc = JSON.parse(d["karo_conc_" + pKey] || "[]");
+        if (Array.isArray(conc) && conc.length > 0) {
+          const rows = conc.map(c => ({
+            id: c.id, project: pKey, date: String(c.date||""),
+            currency: String(c.currency||"iqd"),
+            meters: Number(c.meters||0), pricepermeter: Number(c.pricePerMeter||0),
+            totalprice: Number(c.totalPrice||0), deposit: Number(c.deposit||0),
+            depositpercent: Number(c.depositPercent||0), received: Number(c.received||0),
+            isreceived: !!c.isReceived, depositclaimed: !!c.depositClaimed,
+            note: String(c.note||""), marked: !!c.marked,
+            paidamount: Number(c.paidAmount||0),
+            payments: JSON.stringify(c.payments || [])
+          }));
+          await supabase.from("concrete").insert(rows);
+          console.log("[BackupRestore] uploaded " + rows.length + " concrete");
+        }
+      } catch(e) { console.error("[BackupRestore] concrete error:", e); }
+      
+      // invoices
+      try {
+        const inv = JSON.parse(d["karo_inv_" + pKey] || "[]");
+        if (Array.isArray(inv) && inv.length > 0) {
+          const rows = inv.map(i => ({
+            id: i.id, project: pKey, date: String(i.date||""),
+            invoiceno: String(i.invoiceNo||""), currency: String(i.currency||""),
+            billto: String(i.billTo||""), billphone: String(i.billPhone||""),
+            items: JSON.stringify(i.items || []),
+            total: Number(i.total||0), marked: !!i.marked
+          }));
+          await supabase.from("invoices").insert(rows);
+          console.log("[BackupRestore] uploaded " + rows.length + " invoices");
+        }
+      } catch(e) { console.error("[BackupRestore] invoices error:", e); }
+      
+      // ============ هەنگاوی ٥: cash بنووسە لەگەڵ formatted_at ـی نوێ ============
+      try {
+        const cashIQD = Number(JSON.parse(d["karo_cashIQD_" + pKey] || "0"));
+        const cashUSD = Number(JSON.parse(d["karo_cashUSD_" + pKey] || "0"));
+        const rate = Number(JSON.parse(d["karo_rate_" + pKey] || "1500"));
+        const cashLog = d["karo_cashLog_" + pKey] || "[]";
+        
+        await supabase.from("cash").upsert([{
+          id: pKey,
+          project: pKey,
+          cashiqd: cashIQD,
+          cashusd: cashUSD,
+          exchangerate: rate,
+          cashlog: cashLog,
+          formatted_at: restoreTimestamp
+        }]);
+        console.log("[BackupRestore] uploaded cash (IQD=" + cashIQD + ", USD=" + cashUSD + ")");
+      } catch(e) { console.error("[BackupRestore] cash error:", e); }
+      
+      // ============ هەنگاوی ٦: localStorage بنووسە (لەگەڵ formatted_at ـی نوێ) ============
+      Object.entries(d).forEach(([k, v]) => {
+        // formatted_at کۆن لە backup بەکارمەهێنە — بەڵکوو ئەو نوێیە بەکاربهێنە
+        if (k === "karo_formatted_" + pKey) {
+          localStorage.setItem(k, restoreTimestamp);
+        } else {
+          localStorage.setItem(k, v);
+        }
+      });
+      
+      console.log("[BackupRestore] ✅ restore complete — reloading");
+      alert(t.backupSuccess);
+      window.location.reload();
+    } catch (err) {
+      console.error("[BackupRestore] error:", err);
+      window._karoFormatting = false;
+      alert("Error: " + (err.message || "Unknown"));
+    }
   };
   
   return (

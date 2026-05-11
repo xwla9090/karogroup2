@@ -99,9 +99,12 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
             localStorage.setItem("karo_cashLog_" + project, "[]");
             
             // ٢٠٠ ملی چرکە چاوەڕێ، دواتر reload
+            // ⭐ ٥ چرکە چاوەڕێ بکە — کاتی پیت بدە بە براوسەری دیکە
+            // کە سڕینەوەکان تەواو بکات پێش ئەوەی ئەم براوسەرە reload بکات
             setTimeout(() => {
+              console.log("[RealtimeSync] reloading after 5s wait for Chrome to finish format");
               window.location.reload();
-            }, 200);
+            }, 5000);
             return;
           }
           
@@ -182,7 +185,34 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     };
 
     // ============ یەکەم بارکردن ============
-    fetchAll();
+    // ⭐ گرنگ: ئەگەر تازە format کرابێت (کەمتر لە ١٥ چرکە)، ٥ چرکە چاوەڕێ بکە
+    // ئەمە کاتە دەدات بە براوسەری دیکە کە سڕینەوەی تەیبڵەکان تەواو بکات
+    // پێش ئەوەی ئەم براوسەرە fetchAll بکات و داتای کۆن بخوێنێتەوە
+    (() => {
+      const localFormatted = localStorage.getItem("karo_formatted_" + project) || "";
+      let isRecentFormat = false;
+      if (localFormatted) {
+        try {
+          const ageMs = Date.now() - new Date(localFormatted).getTime();
+          if (ageMs >= 0 && ageMs < 15000) {
+            isRecentFormat = true;
+            console.log("[RealtimeSync] 🕐 Recent format detected (age=" + (ageMs/1000).toFixed(1) + "s) — delaying first fetchAll by 5s");
+          }
+        } catch (e) {}
+      }
+      
+      if (isRecentFormat) {
+        // فلاگ بەرز بکە — هیچ fetch یان subscription کار ناکات
+        reloadingRef.current = true;
+        setTimeout(() => {
+          console.log("[RealtimeSync] ✅ 5s delay over — running first fetchAll now");
+          reloadingRef.current = false;
+          fetchAll();
+        }, 5000);
+      } else {
+        fetchAll();
+      }
+    })();
 
     // ============ REALTIME SUBSCRIPTIONS ============
     const channelSuffix = "_" + Date.now();
