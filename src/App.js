@@ -3280,6 +3280,16 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (filterMonth && !i.date?.startsWith(filterMonth)) return false;
     if (showMarkedOnly && !i.marked) return false;
     return true;
+  })
+  /* ⭐ ڕیزبەندی بە پێی تاریخ — نوێترین لە سەرەوە
+     ئەمە دەکات شوێنی هیچ items گۆڕان نەیات کاتێک ئەیدیت دەکرێت،
+     چونکە ڕیزبەندی پەیوەستە بە تاریخی items نەک کاتی ئەیدیت */
+  .sort((a, b) => {
+    const dateA = String(a.date || "");
+    const dateB = String(b.date || "");
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    // ئەگەر هەردووکیان هەمان تاریخیان هەیە، بە پێی id stable بمێننەوە
+    return String(b.id || "").localeCompare(String(a.id || ""));
   });
 
   const totalReceivedIQD = filtered.filter(i => i.currency === "iqd").reduce((a,b) => a + Number(b.received||0), 0);
@@ -3493,16 +3503,20 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const amt = Number(amount||0);
     const otherPaid = (item.payments||[]).filter(p => p.id !== paymentId).reduce((a,b) => a + Number(b.amount||0), 0);
     const maxAllowed = Math.max(0, Number(item.received||0) - otherPaid);
-    if (amt > maxAllowed) { setAlert("ئەم بڕە زیاترە لە ماوەی پارەکە! زیاترین بڕ: " + (item.currency==="usd"?"$":"") + Math.round(maxAllowed)); return; }
+    /* ⭐ Math.round هەردووکیان — چارەسەری floating-point */
+    if (Math.round(amt) > Math.round(maxAllowed)) { setAlert("ئەم بڕە زیاترە لە ماوەی پارەکە! زیاترین بڕ: " + (item.currency==="usd"?"$":"") + Math.round(maxAllowed)); return; }
+    /* ⭐ amt-ـی ڕاستەقینە cap بکە */
+    const cappedAmt = Math.min(amt, maxAllowed);
     const oldPayment = (item.payments||[]).find(p => p.id === paymentId);
     if (!oldPayment) return;
     const cur = item.currency || "iqd";
-    const diff = amt - Number(oldPayment.amount||0);
+    /* ⭐ بەکارهێنانی cappedAmt لە جیاتی amt — لە overpay دەپارێزێت */
+    const diff = cappedAmt - Number(oldPayment.amount||0);
     window._cashUpdatedByMe = true;
     if (cur === "usd") { setCashUSD(prev => prev + diff); }
     else { setCashIQD(prev => prev + diff); }
-    if (diff !== 0) addCashLog("edit payment: " + amt, cur === "iqd" ? diff : 0, cur === "usd" ? diff : 0);
-    const newPayments = (item.payments||[]).map(p => p.id === paymentId ? { ...p, amount: amt, date: date||today(), note: note||"" } : p);
+    if (diff !== 0) addCashLog("edit payment: " + cappedAmt, cur === "iqd" ? diff : 0, cur === "usd" ? diff : 0);
+    const newPayments = (item.payments||[]).map(p => p.id === paymentId ? { ...p, amount: cappedAmt, date: date||today(), note: note||"" } : p);
     const newPaid = newPayments.reduce((a,b) => a + Number(b.amount||0), 0);
     const updItem = { ...item, payments: newPayments, paidAmount: newPaid, isReceived: newPaid >= Number(item.received||0) };
     setItems(prev => prev.map(i => i.id === itemId ? updItem : i));
@@ -3941,7 +3955,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
                       </div>
                       <input placeholder="تێبینی" value={paymentNote} onChange={e => setPaymentNote(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid #e5e5e5", fontSize: 13, textAlign: "center" }} />
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => { const item = items.find(x => x.id === paymentModal); const maxAmt = Math.max(0, Number(item?.received||0) - Number(item?.paidAmount||0)); const amt = Number(paymentAmount||0); if(amt > maxAmt) { setAlert("ئەم بڕە زیاترە لە ماوەی پارەکە! ماوە: " + (item?.currency==="usd"?"$":"") + Math.round(maxAmt)); return; } addPayment(paymentModal, paymentAmount, paymentDate, paymentNote); }} style={{ flex: 1, background: "#4DAF94", color: "#fff", border: "none", borderRadius: 8, padding: "10px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>وەرگرتن</button>
+                        <button onClick={() => { const item = items.find(x => x.id === paymentModal); const maxAmt = Math.max(0, Number(item?.received||0) - Number(item?.paidAmount||0)); const amt = Number(paymentAmount||0); /* ⭐ Math.round هەردووکیان بۆ ئەوەی floating-point کێشە نەخوڵقێنێت */ if(Math.round(amt) > Math.round(maxAmt)) { setAlert("ئەم بڕە زیاترە لە ماوەی پارەکە! ماوە: " + (item?.currency==="usd"?"$":"") + Math.round(maxAmt)); return; } /* ⭐ amt-ـی ڕاستەقینە cap بکە بۆ maxAmt تا overpay ڕووی نەدات */ const finalAmt = Math.min(amt, maxAmt); addPayment(paymentModal, finalAmt, paymentDate, paymentNote); }} style={{ flex: 1, background: "#4DAF94", color: "#fff", border: "none", borderRadius: 8, padding: "10px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>وەرگرتن</button>
                       </div>
                     </div>
                   )}
