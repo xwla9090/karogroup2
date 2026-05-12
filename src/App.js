@@ -2161,6 +2161,16 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (filterMonth && !i.date?.startsWith(filterMonth)) return false;
     if (showMarkedOnly && !i.marked) return false;
     return true;
+  })
+  /* ⭐ ڕیزبەندی بە پێی تاریخ — نوێترین لە سەرەوە
+     ئەمەش دەکات کە:
+     ١. داتای نوێ خۆکار لە سەرەوەی لیست دیار دەبێت
+     ٢. کاتێک ئەیدیت دەکەی، شوێنی ئایتم ناگۆڕێت (مەگەر تاریخ گۆڕی بێت) */
+  .sort((a, b) => {
+    const dateA = String(a.date || "");
+    const dateB = String(b.date || "");
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return String(b.id || "").localeCompare(String(a.id || ""));
   });
   
   const totalIQD = filtered.reduce((a,b) => a+Number(b.amountIQD||0), 0);
@@ -2700,6 +2710,16 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
     if (filterMonth && !i.date?.startsWith(filterMonth)) return false;
     if (showMarkedOnly && !i.marked) return false;
     return true;
+  })
+  /* ⭐ ڕیزبەندی بە پێی تاریخ — نوێترین لە سەرەوە
+     ئەمەش دەکات کە:
+     ١. داتای نوێ خۆکار لە سەرەوەی لیست دیار دەبێت
+     ٢. کاتێک ئەیدیت دەکەی، شوێنی ئایتم ناگۆڕێت (مەگەر تاریخ گۆڕی بێت) */
+  .sort((a, b) => {
+    const dateA = String(a.date || "");
+    const dateB = String(b.date || "");
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return String(b.id || "").localeCompare(String(a.id || ""));
   });
   const totalTakeIQD = filtered.filter(l=>l.type==="take"&&!l.returned).reduce((a,b)=>a+Number(b.amountIQD||0),0);
   const totalTakeUSD = filtered.filter(l=>l.type==="take"&&!l.returned).reduce((a,b)=>a+Number(b.amountUSD||0),0);
@@ -4075,6 +4095,16 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
     if (filterMonth && !i.date?.startsWith(filterMonth)) return false;
     if (showMarkedOnly && !i.marked) return false;
     return true;
+  })
+  /* ⭐ ڕیزبەندی بە پێی تاریخ — نوێترین لە سەرەوە
+     ئەمەش دەکات کە:
+     ١. داتای نوێ خۆکار لە سەرەوەی لیست دیار دەبێت
+     ٢. کاتێک ئەیدیت دەکەی، شوێنی ئایتم ناگۆڕێت (مەگەر تاریخ گۆڕی بێت) */
+  .sort((a, b) => {
+    const dateA = String(a.date || "");
+    const dateB = String(b.date || "");
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return String(b.id || "").localeCompare(String(a.id || ""));
   });
 
   const totalWithdrawIQD = filtered.filter(i=>i.type==="withdraw").reduce((a,b)=>a+Number(b.amountIQD||0),0);
@@ -4591,7 +4621,17 @@ function InvoicePage({ t, s, isRtl, pKey, isFrozen }) {
   const filtered = invoices.filter(inv => 
     inv.invoiceNo.toLowerCase().includes(search.toLowerCase()) ||
     inv.billTo?.toLowerCase().includes(search.toLowerCase())
-  );
+  )
+  /* ⭐ ڕیزبەندی بە پێی تاریخ — نوێترین لە سەرەوە
+     ئەمەش دەکات کە:
+     ١. داتای نوێ خۆکار لە سەرەوەی لیست دیار دەبێت
+     ٢. کاتێک ئەیدیت دەکەی، شوێنی ئایتم ناگۆڕێت (مەگەر تاریخ گۆڕی بێت) */
+  .sort((a, b) => {
+    const dateA = String(a.date || "");
+    const dateB = String(b.date || "");
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return String(b.id || "").localeCompare(String(a.id || ""));
+  });
 
   const addItem = () => setForm({...form, items: [...form.items, { name: "", qty: "", price: "", note: "" }]});
   const removeItem = i => setForm({...form, items: form.items.filter((_,idx)=>idx!==i)});
