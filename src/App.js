@@ -58,19 +58,10 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
     
     // پشکنینی formatted_at — ئەگەر گۆڕابێت، Format ڕوویداوە
     if (supabaseFormatted !== localFormatted) {
-      console.log("[safeUpdateCash] 🚨 formatted_at mismatch (local=" + localFormatted + ", server=" + supabaseFormatted + ") — FORMAT DETECTED, reloading");
-      window._karoFormatting = true;
-      // localStorage پاک بکەرەوە
-      localStorage.setItem("karo_formatted_" + pKey, supabaseFormatted);
-      localStorage.setItem("karo_exp_" + pKey, "[]");
-      localStorage.setItem("karo_conc_" + pKey, "[]");
-      localStorage.setItem("karo_loans_" + pKey, "[]");
-      localStorage.setItem("karo_contr_" + pKey, "[]");
-      localStorage.setItem("karo_inv_" + pKey, "[]");
-      localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(0));
-      localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(0));
-      localStorage.setItem("karo_cashLog_" + pKey, "[]");
-      setTimeout(() => window.location.reload(), 200);
+      // ⭐ گرنگ: ئێستا reload لێرە ناکەین
+      // RealtimeSync بەشێوەی پلانکراو format detect دەکات و reload دەکات
+      // ئەمە لێرە تەنها skip دەکات تا فۆڕمی بەکارهێنەر لاناچێت
+      console.log("[safeUpdateCash] 🚨 formatted_at mismatch (local=" + localFormatted + ", server=" + supabaseFormatted + ") — skipping (RealtimeSync handles reload)");
       return { skipped: "format_detected" };
     }
     
@@ -93,10 +84,11 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
     }
     
     if (!data || data.length === 0) {
-      console.log("[safeUpdateCash] ⚠️ atomic update matched 0 rows — race detected (format happened mid-flight), reloading");
-      window._karoFormatting = true;
-      setTimeout(() => window.location.reload(), 200);
-      return { raceDetected: true };
+      // ⭐ گرنگ: ئێستا reload ناکەین — تەنها skip دەکەین
+      // ئەمە دەکات کە ئەگەر false-positive ڕوویدا، فۆڕمی بەکارهێنەر لاناچێت
+      // RealtimeSync پاش ٢ چرکە polling چاک دەبێتەوە بە شێوەی خۆکار
+      console.log("[safeUpdateCash] ⚠️ atomic update matched 0 rows — skipping (RealtimeSync will recover)");
+      return { raceDetected: true, skipped: true };
     }
     
     console.log("[safeUpdateCash] ✅ updated cashIQD=" + cashIQD + " cashUSD=" + cashUSD);
@@ -2213,14 +2205,18 @@ function ExpensesPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
       if (usd > 0 && cashUSD < usd) { setAlert(t.noBalance); return; }
       const newItem = { ...form, id: genId(), marked: false };
       setItems(prev => [newItem, ...prev]);
+      // ⭐⭐⭐ یەکەم فۆڕم بداخرە
+      setShowForm(false);
       window._karoLocal = true;
       setTimeout(() => { window._karoLocal = false; }, 10000);
-      await supabase.from("expenses").upsert([{ id: newItem.id, project: pKey, date: newItem.date, amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0), receiptno: String(newItem.receiptNo||""), note: String(newItem.note||""), marked: false }]);
       window._cashUpdatedByMe = true;
       if (iqd > 0) setCashIQD(prev => prev - iqd);
       if (usd > 0) setCashUSD(prev => prev - usd);
       addCashLog(`${t.sidebar.expenses}: ${form.note||form.receiptNo}`, -iqd, -usd);
-      setShowForm(false);
+      // ⭐ Supabase لە پاشبنەوە (بێ چاوەڕێی بەکارهێنەر)
+      try {
+        await supabase.from("expenses").upsert([{ id: newItem.id, project: pKey, date: newItem.date, amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0), receiptno: String(newItem.receiptNo||""), note: String(newItem.note||""), marked: false }]);
+      } catch(e) { console.error("[ExpensesPage new]", e); }
     }
     resetForm(); 
   };
@@ -2849,8 +2845,9 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
       }
       const newItem = {...form, personName: pName, id: genId(), marked: false, returned: false};
       setItems(prev => [newItem, ...prev]);
-      // ⭐ پشکنینی Format پێش هەر شت
-      if (window._karoFormatting) { console.log("[LoansPage new] format detected, skip"); setShowForm(false); return; }
+      // ⭐⭐⭐ یەکەم فۆڕم بداخرە
+      setShowForm(false);
+      if (window._karoFormatting) { console.log("[LoansPage new] format detected, skip Supabase"); return; }
       try {
         await supabase.from("loans").upsert([{
           id: newItem.id, project: pKey, date: String(newItem.date||""), 
@@ -2858,7 +2855,6 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
           amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0),
           note: String(newItem.note||""), returned: !!newItem.returned, marked: !!newItem.marked
         }]);
-        // ⭐ بەکارهێنانی safeUpdateCash
         if (window.__karoSafeUpdateCash) {
           await window.__karoSafeUpdateCash(
             pKey, newCashIQD, newCashUSD,
@@ -2867,7 +2863,6 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
           );
         }
       } catch(e) { console.error("[LoansPage new]", e); }
-      setShowForm(false);
     }
     resetForm(); 
   };
@@ -4228,8 +4223,12 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
       }
       const newItem = {...form, personName: pName, id: genId(), marked: false};
       setItems(prev => [newItem, ...prev]);
-      // ⭐ پشکنینی Format پێش هەر شت
-      if (window._karoFormatting) { console.log("[ContractorPage new] format detected, skip"); setShowForm(false); return; }
+      // ⭐⭐⭐ یەکەم فۆڕم بداخرە (UX پێشخستن)
+      setShowForm(false);
+      resetForm();
+      // ⭐ پشکنینی Format پێش Supabase
+      if (window._karoFormatting) { console.log("[ContractorPage new] format detected, skip Supabase"); return; }
+      // ⭐ ئێستا Supabase لە پاشبنەوە بکە (بێ chaوەڕێی بەکارهێنەر)
       try {
         await supabase.from("contractor").upsert([{
           id: newItem.id, project: pKey, date: String(newItem.date||""), 
@@ -4237,7 +4236,6 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
           amountiqd: Number(newItem.amountIQD||0), amountusd: Number(newItem.amountUSD||0),
           note: String(newItem.note||""), marked: !!newItem.marked
         }]);
-        // ⭐ بەکارهێنانی safeUpdateCash
         if (window.__karoSafeUpdateCash) {
           await window.__karoSafeUpdateCash(
             pKey, newCashIQD, newCashUSD,
@@ -4246,9 +4244,7 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
           );
         }
       } catch(e) { console.error("[ContractorPage new]", e); }
-      setShowForm(false);
     }
-    resetForm(); 
   };
 
   const doDelete = async id => {
