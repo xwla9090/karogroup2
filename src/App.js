@@ -3243,6 +3243,9 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
 
 // ==================== CONCRETE ====================
 function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
+  // ⭐⭐⭐ AUTO-HEAL: ئەو ڕیزانە کە بەهۆی floating-point، isReceived=false ـن
+  // بەڵام remaining ـیان بە کارا 0 ـە، خۆکار چاک بکە
+  const healedRef = useRef(new Set());
   const KEY = `karo_conc_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
   useEffect(() => {
@@ -3291,6 +3294,44 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     // ئەگەر هەردووکیان هەمان تاریخیان هەیە، بە پێی id stable بمێننەوە
     return String(b.id || "").localeCompare(String(a.id || ""));
   });
+
+  // ⭐⭐⭐ AUTO-HEAL EFFECT: ڕیزە کۆنەکان کە floating-point کاریگەری لێکردووە چاک بکە
+  useEffect(() => {
+    const itemsToHeal = items.filter(i => {
+      if (!i.id) return false;
+      if (healedRef.current.has(i.id)) return false;
+      if (i.isReceived) return false;
+      const paid = Number(i.paidAmount || 0);
+      if (paid <= 0) return false;
+      const received = Number(i.received || 0);
+      const remaining = Math.max(0, received - paid);
+      // ئەگەر remaining کەمتر لە 1 یە، واتە کارا تەواو وەرگیراوە
+      return Math.round(remaining) <= 0;
+    });
+    
+    if (itemsToHeal.length === 0) return;
+    
+    console.log("[ConcreteHeal] 🔧 healing " + itemsToHeal.length + " items with float rounding issue");
+    itemsToHeal.forEach(item => healedRef.current.add(item.id));
+    
+    // local state نوێ بکە
+    setItems(prev => prev.map(i => {
+      if (itemsToHeal.find(h => h.id === i.id)) {
+        return { ...i, isReceived: true };
+      }
+      return i;
+    }));
+    
+    // Supabase نوێ بکە
+    itemsToHeal.forEach(async (item) => {
+      try {
+        await supabase.from("concrete").update({ isreceived: true }).eq("id", item.id);
+        console.log("[ConcreteHeal] ✅ healed " + item.id);
+      } catch (e) {
+        console.error("[ConcreteHeal] error:", e);
+      }
+    });
+  }, [items]);
 
   const totalReceivedIQD = filtered.filter(i => i.currency === "iqd").reduce((a,b) => a + Number(b.received||0), 0);
   const totalReceivedUSD = filtered.filter(i => i.currency === "usd").reduce((a,b) => a + Number(b.received||0), 0);
@@ -3463,6 +3504,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     const oldPaid = Number(item.paidAmount||0);
     const newPaid = oldPaid + amt;
     const remaining = Math.max(0, Number(item.received||0) - newPaid);
+    /* ⭐ Math.round threshold: ئەگەر remaining کەمتر لە 1 یە، تەواو وەرگیراوە */
+    const fullyReceived = Math.round(remaining) <= 0;
     window._cashUpdatedByMe = true;
     if (cur === "usd") { setCashUSD(prev => prev + amt); }
     else { setCashIQD(prev => prev + amt); }
@@ -3470,8 +3513,8 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     addCashLog("payment: " + amt, cur === "iqd" ? amt : 0, cur === "usd" ? amt : 0);
     const newPaymentObj = { id: genId(), amount: amt, date: date || today(), note: note || "" };
     const newPaymentsList = [...(items.find(i => i.id === id)?.payments || []), newPaymentObj];
-    setItems(prev => prev.map(i => i.id === id ? { ...i, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList } : i));
-    const updItem = { ...item, paidAmount: newPaid, isReceived: remaining <= 0, payments: newPaymentsList };
+    setItems(prev => prev.map(i => i.id === id ? { ...i, paidAmount: newPaid, isReceived: fullyReceived, payments: newPaymentsList } : i));
+    const updItem = { ...item, paidAmount: newPaid, isReceived: fullyReceived, payments: newPaymentsList };
     await supabase.from("concrete").upsert([{ id: updItem.id, project: pKey, date: updItem.date, currency: String(updItem.currency||"iqd"), meters: Number(updItem.meters||0), pricepermeter: Number(updItem.pricePerMeter||0), totalprice: Number(updItem.totalPrice||0), deposit: Number(updItem.deposit||0), depositpercent: Number(updItem.depositPercent||0), received: Number(updItem.received||0), isreceived: !!updItem.isReceived, depositclaimed: !!updItem.depositClaimed, note: String(updItem.note||""), marked: !!updItem.marked, paidamount: Number(updItem.paidAmount||0), payments: JSON.stringify(updItem.payments||[]) }]);
     window._karoLocal = false;
     setPaymentAmount("");
@@ -3518,7 +3561,9 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
     if (diff !== 0) addCashLog("edit payment: " + cappedAmt, cur === "iqd" ? diff : 0, cur === "usd" ? diff : 0);
     const newPayments = (item.payments||[]).map(p => p.id === paymentId ? { ...p, amount: cappedAmt, date: date||today(), note: note||"" } : p);
     const newPaid = newPayments.reduce((a,b) => a + Number(b.amount||0), 0);
-    const updItem = { ...item, payments: newPayments, paidAmount: newPaid, isReceived: newPaid >= Number(item.received||0) };
+    /* ⭐ Math.round threshold: ئەگەر فەرق کەمتر لە 1 یە، تەواو وەرگیراوە */
+    const fullyReceivedEdit = Math.round(Math.max(0, Number(item.received||0) - newPaid)) <= 0;
+    const updItem = { ...item, payments: newPayments, paidAmount: newPaid, isReceived: fullyReceivedEdit };
     setItems(prev => prev.map(i => i.id === itemId ? updItem : i));
     window._karoLocal = true;
     await supabase.from("concrete").upsert([{
