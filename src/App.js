@@ -1295,6 +1295,86 @@ export default function App() {
     else logoTimer.current = setTimeout(() => setLogoClicks(0), 2000);
   };
 
+  // ⭐⭐⭐ FORCE FRESH DATA ON LOGIN ⭐⭐⭐
+  // کاتێک لۆگین دەبیت، هەموو داتاکان لە Supabase دادەگرین
+  // تا گەرەنتی بکەین داتا تازەترین هەیە لەسەر هەردوو ئامێر
+  const __karoRefreshAllData = async (project) => {
+    if (!project) return;
+    console.log("[Karo] 🔄 Refreshing all data for project:", project);
+    try {
+      const [expRes, concRes, loanRes, contrRes, invRes, cashRes, personsRes] = await Promise.all([
+        supabase.from("expenses").select("*").eq("project", project),
+        supabase.from("concrete").select("*").eq("project", project),
+        supabase.from("loans").select("*").eq("project", project),
+        supabase.from("contractor").select("*").eq("project", project),
+        supabase.from("invoices").select("*").eq("project", project),
+        supabase.from("cash").select("*").eq("project", project).maybeSingle(),
+        supabase.from("persons").select("*").eq("project", project)
+      ]);
+      
+      if (expRes && expRes.data) {
+        const mapped = expRes.data.map(e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
+        localStorage.setItem("karo_exp_" + project, JSON.stringify(mapped));
+      }
+      if (concRes && concRes.data) {
+        const mapped = concRes.data.map(c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: (() => { try { return Array.isArray(c.payments) ? c.payments : JSON.parse(c.payments || "[]"); } catch (e) { return []; } })() }));
+        localStorage.setItem("karo_conc_" + project, JSON.stringify(mapped));
+      }
+      if (loanRes && loanRes.data) {
+        const mapped = loanRes.data.map(l => ({ id: l.id, date: l.date, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, returned: l.returned, marked: l.marked }));
+        localStorage.setItem("karo_loans_" + project, JSON.stringify(mapped));
+      }
+      if (contrRes && contrRes.data) {
+        const mapped = contrRes.data.map(c => ({ id: c.id, date: c.date, type: c.type, personName: c.personname, amountIQD: c.amountiqd, amountUSD: c.amountusd, note: c.note, marked: c.marked }));
+        localStorage.setItem("karo_contr_" + project, JSON.stringify(mapped));
+      }
+      if (invRes && invRes.data) {
+        const mapped = invRes.data.map(i => ({ id: i.id, date: i.date, invoiceNo: i.invoiceno, currency: i.currency, billTo: i.billto, billPhone: i.billphone, items: (() => { try { return Array.isArray(i.items) ? i.items : JSON.parse(i.items || "[]"); } catch (e) { return []; } })(), total: i.total, marked: i.marked }));
+        localStorage.setItem("karo_inv_" + project, JSON.stringify(mapped));
+      }
+      if (cashRes && cashRes.data) {
+        const c = cashRes.data;
+        const iqd = Number(c.cashiqd || 0);
+        const usd = Number(c.cashusd || 0);
+        const rate = Number(c.exchangerate || 1500);
+        localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(iqd));
+        localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(usd));
+        localStorage.setItem("karo_rate_" + project, JSON.stringify(rate));
+        if (c.cashlog) localStorage.setItem("karo_cashLog_" + project, c.cashlog);
+        if (c.formatted_at) localStorage.setItem("karo_formatted_" + project, c.formatted_at);
+        window._cashUpdatedByMe = false;
+        setCashIQD(iqd);
+        setCashUSD(usd);
+        setExchangeRate(rate);
+      }
+      if (personsRes && personsRes.data) {
+        const loanPersons = personsRes.data.filter(p => p.type === "loan").map(p => p.name);
+        const contrPersons = personsRes.data.filter(p => p.type === "contractor").map(p => p.name);
+        localStorage.setItem("karo_loanPersons_" + project, JSON.stringify(loanPersons));
+        localStorage.setItem("karo_contrPersons_" + project, JSON.stringify(contrPersons));
+      }
+      
+      window.dispatchEvent(new Event("karoDataUpdate"));
+      console.log("[Karo] ✅ All data refreshed");
+    } catch (e) {
+      console.error("[Karo] Refresh error:", e);
+    }
+  };
+  
+  // ⭐ هەرکات loggedUser گۆڕی، یەکسەر داتاکان نوێ بکەرەوە
+  useEffect(() => {
+    if (loggedUser && loggedUser.project) {
+      __karoRefreshAllData(loggedUser.project);
+      // دیسانی دوای ٣ چرکە بۆ ئەوەی هیچ تاخیرێک هەبێت
+      const timer = setTimeout(() => __karoRefreshAllData(loggedUser.project), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [loggedUser]);
+  
+  // ⭐ Expose globally بۆ دوگمەی refresh ـی دەستی
+  if (typeof window !== "undefined") {
+    window.__karoRefresh = () => loggedUser && loggedUser.project && __karoRefreshAllData(loggedUser.project);
+  }
   const handleLogin = (u, p) => {
     const user = users.find(x => x.username === u && x.password === p);
     if (user) {
@@ -2050,6 +2130,10 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
       <option value="ar">Arabic</option>
     </select>
   </div>
+  {/* ⭐ Refresh button */}
+  <button onClick={() => { if (window.__karoRefresh) window.__karoRefresh(); }} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, width: "100%", padding: 6, borderRadius: 4, border: "1px solid rgba(78,168,142,0.3)", background: "#e8f5f0", color: "#4EA88E", cursor: "pointer", fontSize: 11, marginBottom: 5, fontWeight: 600 }}>
+    🔄 نوێکردنەوەی داتا
+  </button>
   <button onClick={() => setDark(!dark)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, width: "100%", padding: 6, borderRadius: 4, border: "1px solid rgba(78,168,142,0.3)", background: "#e8f5f0", color: "#4EA88E", cursor: "pointer", fontSize: 11, marginBottom: 5 }}>
     {dark?<I.Sun />:<I.Moon />} {dark?t.light:t.dark}
   </button>
