@@ -1453,10 +1453,88 @@ function LandingPage({ t, s, isRtl, dark, lang, fontFamily, setLang, setDark, on
           .dnav { display: none !important; }
           .mbtn { display: flex !important; }
           .project-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          
+          /* ⭐ Mobile dashboard responsive */
+          /* Hide sidebar by default on mobile */
+          aside {
+            transform: translateX(-100%) !important;
+            transition: transform 0.3s ease !important;
+          }
+          [dir="rtl"] aside {
+            transform: translateX(100%) !important;
+          }
+          /* Show sidebar when has 'open' class */
+          aside.open {
+            transform: translateX(0) !important;
+          }
+          
+          /* Main content takes full width on mobile */
+          main {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            width: 100vw !important;
+            max-width: 100vw !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+            padding-top: 60px !important;
+          }
+          
+          /* Reports cards: 2 per row, smaller */
+          main > div > div[style*="grid-template-columns"] {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+          }
+          
+          /* All h1 smaller on mobile */
+          main h1 {
+            font-size: 16px !important;
+            padding: 10px 12px !important;
+            margin-bottom: 12px !important;
+          }
+          
+          /* Hamburger button - always visible on mobile */
+          .mobile-hamburger {
+            display: flex !important;
+            position: fixed !important;
+            top: 12px !important;
+            left: 12px !important;
+            z-index: 200 !important;
+            width: 42px !important;
+            height: 42px !important;
+            border-radius: 10px !important;
+            background: #4EA88E !important;
+            color: #fff !important;
+            border: none !important;
+            cursor: pointer !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+            font-size: 22px !important;
+          }
+          [dir="rtl"] .mobile-hamburger {
+            left: auto !important;
+            right: 12px !important;
+          }
+          
+          /* Overlay when sidebar is open */
+          .mobile-overlay {
+            display: block !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(0,0,0,0.4) !important;
+            z-index: 99 !important;
+          }
         }
+        
         @media (min-width: 769px) {
           .mbtn { display: none !important; }
+          .mobile-hamburger { display: none !important; }
+          .mobile-overlay { display: none !important; }
         }
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { margin: 0; overflow-x: hidden; }
         @keyframes ping {
@@ -1716,6 +1794,24 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
 
   return (
     <div dir={isRtl?"rtl":"ltr"} style={{ display: "flex", minHeight: "100vh", background: s.bg, fontFamily, color: s.text }}>
+      {/* ⭐ Mobile hamburger button */}
+      <button 
+        className="mobile-hamburger" 
+        style={{ display: "none" }}
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+      >
+        {sidebarOpen ? "✕" : "☰"}
+      </button>
+      
+      {/* ⭐ Mobile overlay - click to close sidebar */}
+      {sidebarOpen && (
+        <div 
+          className="mobile-overlay" 
+          style={{ display: "none" }}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
 <aside className={sidebarOpen ? "open" : ""} style={{ width: 280, minWidth: 280, background: "#f5f9f7", border: "1px solid rgba(78,168,142,0.3)", borderRadius: "0 24px 24px 0", borderLeft: "4px solid #4EA88E", display: "flex", flexDirection: "column", position: "fixed", top: 0, bottom: 0, [isRtl?"right":"left"]: 0, zIndex: 100, overflowY: "auto", boxShadow: "8px 0 30px rgba(0,0,0,0.08)" }}>
     {/* Logo Section - Curved */}
     <div style={{ textAlign: "center", padding: "15px 16px 12px", background: "#4EA88E", borderRadius: "0 0 50% 0", marginBottom: 10 }}>
@@ -1755,7 +1851,7 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
   {items.map((p, index) => (
     <button
       key={p.id}
-      onClick={() => { setDashPage(p.id); setTimeout(() => window.dispatchEvent(new Event("karoDataUpdate")), 100); }}
+      onClick={() => { setDashPage(p.id); setSidebarOpen(false); setTimeout(() => window.dispatchEvent(new Event("karoDataUpdate")), 100); }}
       disabled={isFrozen && !user.isAdmin && p.id !== "reports" && p.id !== "cash" && p.id !== "history"}
       style={{
         display: "flex",
