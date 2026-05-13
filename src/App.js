@@ -3,6 +3,28 @@ import AutoSync from "./AutoSync";
 import RealtimeSync from "./RealtimeSync";
 import { supabase } from "./supabase";
 
+// ==================== MOBILE VIEWPORT FIX ====================
+(function setupMobileViewport() {
+  if (typeof document === "undefined") return;
+  if (window._karoViewportFixed) return;
+  window._karoViewportFixed = true;
+  
+  const setViewport = () => {
+    let viewport = document.querySelector("meta[name='viewport']");
+    if (!viewport) {
+      viewport = document.createElement("meta");
+      viewport.name = "viewport";
+      document.head.appendChild(viewport);
+    }
+    viewport.content = "width=device-width, initial-scale=1.0, viewport-fit=cover";
+  };
+  
+  setViewport();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setViewport);
+  }
+})();
+
 // ==================== SAFE CASH UPDATE HELPER ====================
 // ئەم helper-ـە هەموو نووسینەکان بۆ cash تەیبڵ بە atomic دەکات
 // و پاراستنی تەواوی هەیە لە دژی race ـی Format
