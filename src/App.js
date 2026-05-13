@@ -728,29 +728,59 @@ function useOnlineStatus() {
   const [isOffline, setIsOffline] = useState(false);
   
   useEffect(() => {
-    let offlineStartTime = null;
+    let lastSuccessTime = Date.now();
+    let isCurrentlyChecking = false;
     let checkIntervalId = null;
     
-    /* ⭐ پاکی: تەنها navigator.onLine بەکاربهێنە — بێ ping
-       ئەو ping ـە resources دەخوارد و 401 ـی noise دەنووسی
-       online/offline event های براوسەر بەسە */
-    const check = () => {
-      if (!navigator.onLine) {
-        if (!offlineStartTime) offlineStartTime = Date.now();
-        if (Date.now() - offlineStartTime >= 5000) {
+    /* ⭐ پاسبانی navigator.onLine هەندێ جار false دەنووسێت بێ هۆکار (Opera، iOS)
+       چارەسەر: کاتێک false دەڵێت، Supabase ـی ڕاستەقینە تاقی بکە
+       بەکارهێنانی .from("users").limit(1) لەگەڵ API key (هیچ 401 نییە) */
+    const check = async () => {
+      if (isCurrentlyChecking) return; // یەک پشکنین لە کاتدا
+      isCurrentlyChecking = true;
+      
+      try {
+        // ١. هەنگاوی خێرا: navigator.onLine = true → باوەڕی پێ بکە
+        if (navigator.onLine) {
+          lastSuccessTime = Date.now();
+          setIsOffline(false);
+          return;
+        }
+        
+        // ٢. navigator.onLine = false — لەوانەیە درۆ بکات
+        // Supabase ـی ڕاستەقینە تاقی بکە بۆ verify
+        try {
+          const { error } = await supabase
+            .from("users")
+            .select("username")
+            .limit(1);
+          if (!error) {
+            // Supabase کاردەکات — واتە ئینتەرنێت هەیە، navigator.onLine هەڵە بوو
+            console.log("[OfflineCheck] navigator.onLine=false but Supabase works → ONLINE");
+            lastSuccessTime = Date.now();
+            setIsOffline(false);
+            return;
+          }
+        } catch (e) {
+          // Supabase ـیش شکست هێنا
+        }
+        
+        // ٣. هەردووکیان شکست هێنا — ئەگەر ٣٠ چرکە یان زیاتر ڕوویدابێت، offline ئاشکرا بکە
+        const offlineDuration = Date.now() - lastSuccessTime;
+        if (offlineDuration >= 30000) {
+          console.log("[OfflineCheck] confirmed offline for " + (offlineDuration/1000).toFixed(0) + "s");
           setIsOffline(true);
         }
-      } else {
-        offlineStartTime = null;
-        setIsOffline(false);
+      } finally {
+        isCurrentlyChecking = false;
       }
     };
     
     // پشکنینی یەکەم
     check();
     
-    // ١٠ چرکە یەکجار پشکنین (تەنها بۆ بەرکەوتنی هەر دۆخێکی نوێ)
-    checkIntervalId = setInterval(check, 10000);
+    // هەر ٥ چرکە پشکنین (خێرا کاردانەوە)
+    checkIntervalId = setInterval(check, 5000);
     
     // گوێ بدە بە eventی online/offline (سەرکیە و خێرا)
     const handleOnline = () => {
