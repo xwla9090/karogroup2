@@ -1096,18 +1096,20 @@ export default function App() {
     else logoTimer.current = setTimeout(() => setLogoClicks(0), 2000);
   };
 
-  const handleLogin = async (u, p) => {
+  const handleLogin = (u, p) => {
     const user = users.find(x => x.username === u && x.password === p);
     if (user) {
       /* ⭐ Single session lock: session_id ـی نوێ دروست بکە
-         هەر ئامێری دیکە کە هەمان ئەکاونت بەکاردێنێت، خۆکار لۆگئاوت دەبێت */
+         supabase update fire-and-forget بکە — کاتی login دواکەوتن نا کات */
       const newSessionId = Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2);
       try {
         localStorage.setItem("karo_session_id", newSessionId);
-        await supabase.from("users").update({ session_id: newSessionId }).eq("username", user.username);
-        console.log("[session] 🔑 new session created: " + newSessionId.slice(0, 8) + "...");
+        // ⭐ بێ await — fire-and-forget بۆ ئەوەی login خێرا بێت
+        supabase.from("users").update({ session_id: newSessionId }).eq("username", user.username)
+          .then(() => console.log("[session] 🔑 new session created: " + newSessionId.slice(0, 8) + "..."))
+          .catch(e => console.error("[session] login update error:", e));
       } catch (e) {
-        console.error("[session] login update error:", e);
+        console.error("[session] login error:", e);
       }
       
       setLoggedUser(user); 
