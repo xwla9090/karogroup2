@@ -12,18 +12,32 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
     return { skipped: "formatting" };
   }
   
-  // ⭐⭐⭐ گرنگ: localStorage یەکسەر نوێ بکە
-  // ئەمە لە race ـی RealtimeSync دەپارێزێت — ئەگەر fetchCash پێش
-  // ئەوەی Supabase تەواو ببێت بێت، localStorage کارا و درووستە
+  /* ⭐⭐⭐ HARD WRITE LOCK: تەواوی fetchCash بلۆک بکە لە کاتی نووسین
+     ئەمە دەکات لە کاتی PATCH هیچ source نەتوانێت داتای کۆن
+     بەسەر local state ـدا بخاتە سەری */
+  window._cashWriteInProgress = true;
+  
+  // localStorage یەکسەر نوێ بکە
   try {
     localStorage.setItem("karo_cashIQD_" + pKey, JSON.stringify(cashIQD));
     localStorage.setItem("karo_cashUSD_" + pKey, JSON.stringify(cashUSD));
   } catch (e) {}
   
-  // ⭐⭐⭐ کاتژمێری local update تۆمار بکە (٤ چرکە lock)
-  // RealtimeSync ـی هەمان browser لەم ماوەیە نابێت
-  // داتای Supabase ـی کۆن بەسەر local state ـدا بخاتە سەری
+  /* ⭐ کاتژمێری local update — ١٥ چرکە lock (پێشتر ٤ بوو، بەس نەبوو)
+     payload گەورەیە (cashlog چەند KB) — کاتی پتر دەوێت */
   window._cashLocalUpdateTime = Date.now();
+  
+  /* ⭐ cashlog کورت بکە بۆ ٢٠ entry کۆتایی (UI لۆکاڵ هەموو دەبینێت)
+     ئەمە payload لە ٢٠KB دەکاتە ٢KB — ١٠٠ هێندە خێراتر */
+  let truncatedCashlog = cashlog;
+  try {
+    const parsed = JSON.parse(cashlog || "[]");
+    if (Array.isArray(parsed) && parsed.length > 20) {
+      truncatedCashlog = JSON.stringify(parsed.slice(-20));
+      console.log("[safeUpdateCash] 📦 truncated cashlog from " + parsed.length + " to 20 entries");
+    }
+  } catch(e) {}
+  cashlog = truncatedCashlog;
   
   try {
     const localFormatted = localStorage.getItem("karo_formatted_" + pKey) || "";
@@ -35,6 +49,7 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
     
     if (selectError) {
       console.error("[safeUpdateCash] select error:", selectError);
+      window._cashWriteInProgress = false;
       return { error: selectError };
     }
     
@@ -92,9 +107,12 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
     }
     
     console.log("[safeUpdateCash] ✅ updated cashIQD=" + cashIQD + " cashUSD=" + cashUSD);
+    /* ⭐ پاش ٢ چرکە، write lock لاببە — کاتی پێ بدە بە Supabase کە بنیاتنرێت */
+    setTimeout(() => { window._cashWriteInProgress = false; }, 2000);
     return { success: true };
   } catch (e) {
     console.error("[safeUpdateCash] exception:", e);
+    window._cashWriteInProgress = false;
     return { error: e };
   }
 }

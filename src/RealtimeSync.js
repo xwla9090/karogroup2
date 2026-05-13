@@ -124,13 +124,17 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
 
         if (cashHash === cashHashRef.current) return;
         
-        // ⭐⭐⭐ گرنگ: ئەگەر local update تازە ڕوویدابێت (کەمتر لە ٤ چرکە)
-        // داتای سێرڤەر بەسەر local state ـدا نەخە — لەوانەیە Supabase
-        // هێشتا داتای کۆنی هەبێت چونکە safeUpdateCash تەواو نەبووە
+        /* ⭐⭐⭐ HARD WRITE LOCK: ئەگەر safeUpdateCash لە کاردایە، هیچ مەکە
+           ئەمە دەکات هیچ source نەتوانێت داتای کۆن بەسەر local state ـدا بخاتە سەری */
+        if (window._cashWriteInProgress) {
+          console.log("[RealtimeSync] 🔒 skipping cash sync — write in progress");
+          return;
+        }
+        
+        /* ⭐ لاک بەرز کرا بۆ ١٥ چرکە — payload گەورەیە کاتی پتر دەوێت */
         const localUpdateAge = Date.now() - (window._cashLocalUpdateTime || 0);
-        if (localUpdateAge < 4000) {
+        if (localUpdateAge < 15000) {
           console.log("[RealtimeSync] ⏱️ skipping cash sync — recent local update (" + (localUpdateAge/1000).toFixed(1) + "s ago)");
-          // hash ـیش تۆمار مەکە — تا کاتێک سێرڤەر کاتی پێ بێت، دیسان بپشکنە
           return;
         }
         
