@@ -12,9 +12,15 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
     return { skipped: "formatting" };
   }
   
-  /* ⭐⭐⭐ HARD WRITE LOCK: تەواوی fetchCash بلۆک بکە لە کاتی نووسین
-     ئەمە دەکات لە کاتی PATCH هیچ source نەتوانێت داتای کۆن
-     بەسەر local state ـدا بخاتە سەری */
+  /* ⭐⭐⭐ GENERATION TRACKING: هەر بانگکردن ژمارەیەکی نوێ دەگرێت
+     تەنها نوێترین بانگکردن دەنووسێت — کۆنەکان خۆیان abort دەکەن
+     ئەمە بنەڕەتی کێشە چاک دەکات: useEffect ـی کۆن نرخی کۆن دەنووسێت */
+  if (typeof window._safeUpdateCashGen !== "number") window._safeUpdateCashGen = 0;
+  const myGen = ++window._safeUpdateCashGen;
+  const isLatest = () => myGen === window._safeUpdateCashGen;
+  console.log("[safeUpdateCash] gen=" + myGen + " starting (IQD=" + cashIQD + " USD=" + cashUSD + ")");
+  
+  /* ⭐⭐⭐ HARD WRITE LOCK */
   window._cashWriteInProgress = true;
   
   // localStorage یەکسەر نوێ بکە
@@ -40,6 +46,12 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
   cashlog = truncatedCashlog;
   
   try {
+    /* ⭐ پشکنینی gen پێش SELECT — ئەگەر نوێتر هاتبێت، abort */
+    if (!isLatest()) {
+      console.log("[safeUpdateCash] gen=" + myGen + " ⛔ superseded BEFORE select — aborting");
+      return { aborted: true, reason: "superseded_before_select" };
+    }
+    
     const localFormatted = localStorage.getItem("karo_formatted_" + pKey) || "";
     const { data: existingCash, error: selectError } = await supabase
       .from("cash")
@@ -47,9 +59,15 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
       .eq("project", pKey)
       .maybeSingle();
     
+    /* ⭐ پشکنینی gen پاش SELECT */
+    if (!isLatest()) {
+      console.log("[safeUpdateCash] gen=" + myGen + " ⛔ superseded AFTER select — aborting");
+      return { aborted: true, reason: "superseded_after_select" };
+    }
+    
     if (selectError) {
       console.error("[safeUpdateCash] select error:", selectError);
-      window._cashWriteInProgress = false;
+      if (isLatest()) window._cashWriteInProgress = false;
       return { error: selectError };
     }
     
@@ -78,6 +96,13 @@ async function safeUpdateCash(pKey, cashIQD, cashUSD, exchangeRate, cashlog) {
       // ئەمە لێرە تەنها skip دەکات تا فۆڕمی بەکارهێنەر لاناچێت
       console.log("[safeUpdateCash] 🚨 formatted_at mismatch (local=" + localFormatted + ", server=" + supabaseFormatted + ") — skipping (RealtimeSync handles reload)");
       return { skipped: "format_detected" };
+    }
+    
+    /* ⭐⭐⭐ گرنگترین: پشکنینی gen پێش UPDATE 
+       ئەگەر safeUpdateCash ـی نوێ هاتبێت پاش ئەم یەکە، ئەم نووسین مەکە */
+    if (!isLatest()) {
+      console.log("[safeUpdateCash] gen=" + myGen + " ⛔ superseded BEFORE update — NOT writing");
+      return { aborted: true, reason: "superseded_before_update" };
     }
     
     // ATOMIC UPDATE — تەنها ئەگەر formatted_at هێشتا یەکسانە
