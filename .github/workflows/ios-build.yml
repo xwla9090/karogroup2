@@ -1,6 +1,5 @@
 name: Build iOS IPA
 
-# Trigger: push بۆ main یان manually
 on:
   push:
     branches: [main]
@@ -22,11 +21,17 @@ jobs:
       - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
       
-      - name: 🟢 Setup Node.js
+      - name: 🟢 Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
+      
+      - name: 🍎 Show Xcode version
+        run: |
+          xcodebuild -version
+          node --version
+          npm --version
       
       - name: 📦 Install npm dependencies
         run: npm ci || npm install
@@ -36,23 +41,35 @@ jobs:
           export CI=false
           export GENERATE_SOURCEMAP=false
           npm run build
+          echo "Build directory contents:"
+          ls -la build/ | head -20
       
-      - name: 📱 Install Capacitor packages (if missing)
-        run: |
-          if [ ! -d "node_modules/@capacitor/cli" ]; then
-            npm install --save @capacitor/core @capacitor/cli @capacitor/ios
-          fi
+      - name: 🧹 Clean any existing iOS folder
+        run: rm -rf ios
       
-      - name: 🍎 Add iOS platform
+      - name: 🍎 Add iOS platform (fresh)
         run: |
-          if [ ! -d "ios" ]; then
-            npx cap add ios
-          fi
+          npx cap add ios
+          echo "After cap add ios:"
+          ls -la ios/ || echo "ios/ folder not created!"
+          ls -la ios/App/ || echo "ios/App not created!"
       
       - name: 🔄 Sync Capacitor with iOS
-        run: npx cap sync ios
+        run: |
+          npx cap sync ios
+          echo "After cap sync:"
+          ls -la ios/App/
       
-      - name: 🛠️ Build unsigned archive with xcodebuild
+      - name: ✅ Verify Xcode workspace exists
+        run: |
+          if [ ! -d "ios/App/App.xcworkspace" ]; then
+            echo "::error::App.xcworkspace not found!"
+            ls -la ios/App/
+            exit 1
+          fi
+          echo "✅ App.xcworkspace found"
+      
+      - name: 🛠️ Build unsigned archive
         run: |
           cd ios/App
           xcodebuild \
@@ -61,23 +78,47 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath build/App.xcarchive \
-            -allowProvisioningUpdates \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            archive
+            archive | xcpretty || true
+          
+          # Check if archive was created
+          if [ ! -d "build/App.xcarchive" ]; then
+            echo "::error::Archive not created. Retrying without xcpretty for full logs..."
+            xcodebuild \
+              -workspace App.xcworkspace \
+              -scheme App \
+              -configuration Release \
+              -sdk iphoneos \
+              -archivePath build/App.xcarchive \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              DEVELOPMENT_TEAM="" \
+              PROVISIONING_PROFILE_SPECIFIER="" \
+              archive
+          fi
       
       - name: 📦 Create IPA file
         run: |
           cd ios/App/build
+          
+          if [ ! -d "App.xcarchive/Products/Applications/App.app" ]; then
+            echo "::error::App.app not found in archive!"
+            ls -la App.xcarchive/Products/Applications/ || echo "Applications folder missing"
+            exit 1
+          fi
+          
           mkdir -p Payload
           cp -r App.xcarchive/Products/Applications/App.app Payload/
           zip -qr KaroGroup.ipa Payload
           rm -rf Payload
+          
+          echo "✅ IPA created:"
           ls -lh KaroGroup.ipa
-          echo "✅ IPA دروستکرا"
       
       - name: ⬆️ Upload IPA artifact
         uses: actions/upload-artifact@v4
@@ -88,11 +129,12 @@ jobs:
           if-no-files-found: error
       
       - name: 📝 Summary
+        if: success()
         run: |
-          echo "## 🎉 IPA ـی نوێ دروستکرا!" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎉 IPA دروستکرا!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**هەنگاوەکانی نصبکردن:**" >> $GITHUB_STEP_SUMMARY
-          echo "1. دابگرە لە Artifacts-ـی سەرەوە (دوگمەی KaroGroup-IPA-${{ github.run_number }})" >> $GITHUB_STEP_SUMMARY
-          echo "2. ZIP بکەرەوە — IPA دەردەکەوێت" >> $GITHUB_STEP_SUMMARY
-          echo "3. AirDrop یان iCloud لە iPhone بنێرە" >> $GITHUB_STEP_SUMMARY
-          echo "4. Filza بکەرەوە → IPA کلیک بکە → Install" >> $GITHUB_STEP_SUMMARY
+          echo "1. دابگرە لە Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "2. ZIP بکەرەوە" >> $GITHUB_STEP_SUMMARY
+          echo "3. AirDrop بۆ iPhone" >> $GITHUB_STEP_SUMMARY
+          echo "4. Filza → Install" >> $GITHUB_STEP_SUMMARY
