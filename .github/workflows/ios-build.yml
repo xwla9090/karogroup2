@@ -27,16 +27,6 @@ jobs:
           node-version: '22'
           cache: 'npm'
       
-      - name: 💎 Setup Ruby (for CocoaPods)
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-      
-      - name: 🍫 Install/Update CocoaPods
-        run: |
-          gem install cocoapods --no-document
-          pod --version
-      
       - name: 🍎 Show Xcode version
         run: |
           xcodebuild -version
@@ -51,7 +41,6 @@ jobs:
           export CI=false
           export GENERATE_SOURCEMAP=false
           npm run build
-          echo "Build folder size:"
           du -sh build/ || true
       
       - name: 🧹 Clean iOS folder
@@ -60,60 +49,29 @@ jobs:
       - name: 🍎 Add iOS platform
         run: |
           npx cap add ios
-          
           echo "════════════════════════════════════"
           echo "After cap add ios:"
           echo "════════════════════════════════════"
-          ls -la ios/
           ls -la ios/App/
       
       - name: 🔄 Capacitor sync
         run: |
           npx cap sync ios
-          
           echo "════════════════════════════════════"
           echo "After cap sync ios:"
           echo "════════════════════════════════════"
           ls -la ios/App/
       
-      - name: 🍫 Explicit pod install
+      - name: 📋 List schemes (debug)
         run: |
           cd ios/App
-          if [ -f "Podfile" ]; then
-            echo "Podfile exists, running pod install..."
-            pod install
-          else
-            echo "::warning::No Podfile found"
-            ls -la
-          fi
-          
-          echo "════════════════════════════════════"
-          echo "After pod install:"
-          echo "════════════════════════════════════"
-          ls -la
+          xcodebuild -project App.xcodeproj -list
       
-      - name: 🔍 Locate xcworkspace
-        run: |
-          echo "Searching for xcworkspace:"
-          find ios -name "*.xcworkspace" -type d 2>/dev/null || echo "No xcworkspace found"
-          echo ""
-          echo "Searching for xcodeproj:"
-          find ios -name "*.xcodeproj" -type d 2>/dev/null || echo "No xcodeproj found"
-      
-      - name: ✅ Verify workspace exists
-        run: |
-          if [ ! -d "ios/App/App.xcworkspace" ]; then
-            echo "::error::App.xcworkspace still missing!"
-            ls -la ios/App/
-            exit 1
-          fi
-          echo "✅ App.xcworkspace exists"
-      
-      - name: 🛠️ Build unsigned archive
+      - name: 🛠️ Build unsigned archive (using xcodeproj for SPM)
         run: |
           cd ios/App
           xcodebuild \
-            -workspace App.xcworkspace \
+            -project App.xcodeproj \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
@@ -125,6 +83,8 @@ jobs:
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
             ENABLE_BITCODE=NO \
+            -allowProvisioningUpdates \
+            -skipPackagePluginValidation \
             archive
       
       - name: 📦 Create IPA file
@@ -158,7 +118,7 @@ jobs:
         run: |
           echo "## 🎉 IPA دروستکرا!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Run number: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "Run #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**هەنگاوەکانی نصب:**" >> $GITHUB_STEP_SUMMARY
           echo "1. دابگرە IPA لە Artifacts" >> $GITHUB_STEP_SUMMARY
