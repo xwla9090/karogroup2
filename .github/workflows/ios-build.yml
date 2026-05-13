@@ -51,35 +51,25 @@ jobs:
           export CI=false
           export GENERATE_SOURCEMAP=false
           npm run build
-          ls -la build/ | head -5
+          echo "Build folder size:"
+          du -sh build/ || true
       
       - name: 🧹 Clean iOS folder
         run: rm -rf ios
       
       - name: 🍎 Add iOS platform
         run: |
-          npx cap add ios --verbose 2>&1 || true
+          npx cap add ios
           
           echo "════════════════════════════════════"
           echo "After cap add ios:"
           echo "════════════════════════════════════"
-          
-          if [ -d "ios" ]; then
-            echo "ios/ contents:"
-            ls -la ios/
-            
-            if [ -d "ios/App" ]; then
-              echo "ios/App contents:"
-              ls -la ios/App/
-            fi
-          else
-            echo "::error::ios/ folder was not created!"
-            exit 1
-          fi
+          ls -la ios/
+          ls -la ios/App/
       
       - name: 🔄 Capacitor sync
         run: |
-          npx cap sync ios --verbose 2>&1 || true
+          npx cap sync ios
           
           echo "════════════════════════════════════"
           echo "After cap sync ios:"
@@ -89,30 +79,31 @@ jobs:
       - name: 🍫 Explicit pod install
         run: |
           cd ios/App
-          echo "Podfile content:"
-          cat Podfile || echo "Podfile not found!"
-          echo "════════════════════════════════════"
-          
-          # Force install pods (creates xcworkspace)
-          pod install --verbose 2>&1 | tail -50
+          if [ -f "Podfile" ]; then
+            echo "Podfile exists, running pod install..."
+            pod install
+          else
+            echo "::warning::No Podfile found"
+            ls -la
+          fi
           
           echo "════════════════════════════════════"
           echo "After pod install:"
+          echo "════════════════════════════════════"
           ls -la
       
       - name: 🔍 Locate xcworkspace
         run: |
-          echo "Searching for xcworkspace files:"
-          find ios -name "*.xcworkspace" -type d 2>/dev/null
+          echo "Searching for xcworkspace:"
+          find ios -name "*.xcworkspace" -type d 2>/dev/null || echo "No xcworkspace found"
           echo ""
-          echo "Searching for xcodeproj files:"
-          find ios -name "*.xcodeproj" -type d 2>/dev/null
+          echo "Searching for xcodeproj:"
+          find ios -name "*.xcodeproj" -type d 2>/dev/null || echo "No xcodeproj found"
       
       - name: ✅ Verify workspace exists
         run: |
           if [ ! -d "ios/App/App.xcworkspace" ]; then
             echo "::error::App.xcworkspace still missing!"
-            echo "Full ios/App listing:"
             ls -la ios/App/
             exit 1
           fi
@@ -168,3 +159,8 @@ jobs:
           echo "## 🎉 IPA دروستکرا!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Run number: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**هەنگاوەکانی نصب:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. دابگرە IPA لە Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "2. AirDrop بۆ iPhone" >> $GITHUB_STEP_SUMMARY
+          echo "3. Filza → Install" >> $GITHUB_STEP_SUMMARY
