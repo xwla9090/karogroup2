@@ -27,6 +27,16 @@ jobs:
           node-version: '22'
           cache: 'npm'
       
+      - name: 💎 Setup Ruby (for CocoaPods)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+      
+      - name: 🍫 Install/Update CocoaPods
+        run: |
+          gem install cocoapods --no-document
+          pod --version
+      
       - name: 🍎 Show Xcode version
         run: |
           xcodebuild -version
@@ -41,33 +51,72 @@ jobs:
           export CI=false
           export GENERATE_SOURCEMAP=false
           npm run build
-          echo "Build directory contents:"
-          ls -la build/ | head -20
+          ls -la build/ | head -5
       
-      - name: 🧹 Clean any existing iOS folder
+      - name: 🧹 Clean iOS folder
         run: rm -rf ios
       
-      - name: 🍎 Add iOS platform (fresh)
+      - name: 🍎 Add iOS platform
         run: |
-          npx cap add ios
+          npx cap add ios --verbose 2>&1 || true
+          
+          echo "════════════════════════════════════"
           echo "After cap add ios:"
-          ls -la ios/ || echo "ios/ folder not created!"
-          ls -la ios/App/ || echo "ios/App not created!"
+          echo "════════════════════════════════════"
+          
+          if [ -d "ios" ]; then
+            echo "ios/ contents:"
+            ls -la ios/
+            
+            if [ -d "ios/App" ]; then
+              echo "ios/App contents:"
+              ls -la ios/App/
+            fi
+          else
+            echo "::error::ios/ folder was not created!"
+            exit 1
+          fi
       
-      - name: 🔄 Sync Capacitor with iOS
+      - name: 🔄 Capacitor sync
         run: |
-          npx cap sync ios
-          echo "After cap sync:"
+          npx cap sync ios --verbose 2>&1 || true
+          
+          echo "════════════════════════════════════"
+          echo "After cap sync ios:"
+          echo "════════════════════════════════════"
           ls -la ios/App/
       
-      - name: ✅ Verify Xcode workspace exists
+      - name: 🍫 Explicit pod install
+        run: |
+          cd ios/App
+          echo "Podfile content:"
+          cat Podfile || echo "Podfile not found!"
+          echo "════════════════════════════════════"
+          
+          # Force install pods (creates xcworkspace)
+          pod install --verbose 2>&1 | tail -50
+          
+          echo "════════════════════════════════════"
+          echo "After pod install:"
+          ls -la
+      
+      - name: 🔍 Locate xcworkspace
+        run: |
+          echo "Searching for xcworkspace files:"
+          find ios -name "*.xcworkspace" -type d 2>/dev/null
+          echo ""
+          echo "Searching for xcodeproj files:"
+          find ios -name "*.xcodeproj" -type d 2>/dev/null
+      
+      - name: ✅ Verify workspace exists
         run: |
           if [ ! -d "ios/App/App.xcworkspace" ]; then
-            echo "::error::App.xcworkspace not found!"
+            echo "::error::App.xcworkspace still missing!"
+            echo "Full ios/App listing:"
             ls -la ios/App/
             exit 1
           fi
-          echo "✅ App.xcworkspace found"
+          echo "✅ App.xcworkspace exists"
       
       - name: 🛠️ Build unsigned archive
         run: |
@@ -77,38 +126,23 @@ jobs:
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -archivePath build/App.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            archive | xcpretty || true
-          
-          # Check if archive was created
-          if [ ! -d "build/App.xcarchive" ]; then
-            echo "::error::Archive not created. Retrying without xcpretty for full logs..."
-            xcodebuild \
-              -workspace App.xcworkspace \
-              -scheme App \
-              -configuration Release \
-              -sdk iphoneos \
-              -archivePath build/App.xcarchive \
-              CODE_SIGN_IDENTITY="" \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGNING_ALLOWED=NO \
-              DEVELOPMENT_TEAM="" \
-              PROVISIONING_PROFILE_SPECIFIER="" \
-              archive
-          fi
+            ENABLE_BITCODE=NO \
+            archive
       
       - name: 📦 Create IPA file
         run: |
           cd ios/App/build
           
           if [ ! -d "App.xcarchive/Products/Applications/App.app" ]; then
-            echo "::error::App.app not found in archive!"
-            ls -la App.xcarchive/Products/Applications/ || echo "Applications folder missing"
+            echo "::error::App.app not found!"
+            ls -la App.xcarchive/Products/Applications/ || true
             exit 1
           fi
           
@@ -120,7 +154,7 @@ jobs:
           echo "✅ IPA created:"
           ls -lh KaroGroup.ipa
       
-      - name: ⬆️ Upload IPA artifact
+      - name: ⬆️ Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: KaroGroup-IPA-${{ github.run_number }}
@@ -133,8 +167,4 @@ jobs:
         run: |
           echo "## 🎉 IPA دروستکرا!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**هەنگاوەکانی نصبکردن:**" >> $GITHUB_STEP_SUMMARY
-          echo "1. دابگرە لە Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "2. ZIP بکەرەوە" >> $GITHUB_STEP_SUMMARY
-          echo "3. AirDrop بۆ iPhone" >> $GITHUB_STEP_SUMMARY
-          echo "4. Filza → Install" >> $GITHUB_STEP_SUMMARY
+          echo "Run number: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
