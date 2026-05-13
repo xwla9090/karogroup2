@@ -23,6 +23,9 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
   const cashPollRef = useRef(null);
   const fullPollRef = useRef(null);
   const reloadingRef = useRef(false);
+  /* ⭐ In-flight protection: نەهێڵە دوو polling هاوکات کاربکەن */
+  const cashInFlightRef = useRef(false);
+  const fullInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!project) return;
@@ -65,6 +68,9 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     // ============ FETCH CASH ============
     const fetchCash = async () => {
       if (reloadingRef.current) return;
+      /* ⭐ In-flight protection */
+      if (cashInFlightRef.current) return;
+      cashInFlightRef.current = true;
       try {
         const { data: cashData, error } = await supabase.from("cash").select("*").eq("project", project).maybeSingle();
         if (error) { console.error("[RealtimeSync] fetchCash error:", error); return; }
@@ -154,6 +160,8 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
         window.dispatchEvent(new Event("karoDataUpdate"));
       } catch (e) {
         console.error("[RealtimeSync] fetchCash error:", e);
+      } finally {
+        cashInFlightRef.current = false;
       }
     };
 
@@ -182,17 +190,24 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
     // ============ FETCH ALL ============
     const fetchAll = async () => {
       if (!navigator.onLine || reloadingRef.current) return;
-      // ⭐ یەکەم cash بپشکنە — ئەگەر format بوو reload دەکات
-      await fetchCash();
-      if (reloadingRef.current) return;
-      await Promise.all([
-        fetchTable("expenses", "karo_exp_", expMapper),
-        fetchTable("concrete", "karo_conc_", concMapper),
-        fetchTable("loans", "karo_loans_", loanMapper),
-        fetchTable("contractor", "karo_contr_", contrMapper),
-        fetchTable("invoices", "karo_inv_", invMapper),
-        fetchPersons()
-      ]);
+      /* ⭐ In-flight protection: ئەگەر full poll لە ڕیزدایە، نوێ مەکە */
+      if (fullInFlightRef.current) return;
+      fullInFlightRef.current = true;
+      try {
+        // ⭐ یەکەم cash بپشکنە — ئەگەر format بوو reload دەکات
+        await fetchCash();
+        if (reloadingRef.current) return;
+        await Promise.all([
+          fetchTable("expenses", "karo_exp_", expMapper),
+          fetchTable("concrete", "karo_conc_", concMapper),
+          fetchTable("loans", "karo_loans_", loanMapper),
+          fetchTable("contractor", "karo_contr_", contrMapper),
+          fetchTable("invoices", "karo_inv_", invMapper),
+          fetchPersons()
+        ]);
+      } finally {
+        fullInFlightRef.current = false;
+      }
     };
 
     // ============ یەکەم بارکردن ============
@@ -269,17 +284,20 @@ export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCas
         () => fetchCash()).subscribe();
 
     // ============ POLLING FALLBACK ============
+    /* ⭐ کات زۆرتر — لە resource exhaustion دەپارێزێت
+       Realtime subscription یەکسەر کاردەکات کاتێک داتا گۆڕێت
+       polling تەنها بەکاردێت کاتێک subscription بزرە */
     cashPollRef.current = setInterval(() => {
       if (navigator.onLine && document.visibilityState === "visible" && !reloadingRef.current) {
         fetchCash();
       }
-    }, 2000);
+    }, 5000);
 
     fullPollRef.current = setInterval(() => {
       if (navigator.onLine && document.visibilityState === "visible" && !reloadingRef.current) {
         fetchAll();
       }
-    }, 5000);
+    }, 20000);
 
     // ============ VISIBILITY CHANGE ============
     const onVisibility = () => {

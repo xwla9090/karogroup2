@@ -686,59 +686,28 @@ function useOnlineStatus() {
   
   useEffect(() => {
     let offlineStartTime = null;
-    let pingTimeoutId = null;
     let checkIntervalId = null;
     
-    // Supabase URL لە environment یان بەکارهێنە
-    const SUPABASE_URL = "https://scwgsaglnpyvkblegewd.supabase.co";
-    
-    // ping بۆ Supabase — timeout 3 چرکە
-    const pingSupabase = async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        // HEAD request بۆ کەمکردنەوەی داتا
-        const response = await fetch(SUPABASE_URL + "/rest/v1/", {
-          method: "HEAD",
-          signal: controller.signal,
-          cache: "no-store"
-        });
-        clearTimeout(timeoutId);
-        // 200, 401, 404 هەموو OK ـن — واتە سێرڤەر بەردەستە
-        return response.status > 0;
-      } catch (e) {
-        return false;
-      }
-    };
-    
-    const check = async () => {
-      // ١. سەرەتا navigator.onLine بپشکنە
+    /* ⭐ پاکی: تەنها navigator.onLine بەکاربهێنە — بێ ping
+       ئەو ping ـە resources دەخوارد و 401 ـی noise دەنووسی
+       online/offline event های براوسەر بەسە */
+    const check = () => {
       if (!navigator.onLine) {
         if (!offlineStartTime) offlineStartTime = Date.now();
-      } else {
-        // ٢. ping بۆ Supabase
-        const ok = await pingSupabase();
-        if (ok) {
-          // پەیوەندی هەیە — یەکسەر isOffline = false بکە
-          offlineStartTime = null;
-          setIsOffline(false);
-          return;
+        if (Date.now() - offlineStartTime >= 5000) {
+          setIsOffline(true);
         }
-        // ping نا — بەڵام navigator.onLine = true. لەوانەیە کێشە لە سێرڤەر بێت
-        if (!offlineStartTime) offlineStartTime = Date.now();
-      }
-      
-      // ٣. ئەگەر ٥ چرکە یان زیاتر offline بووە، غەڵت بنیشاندە
-      if (offlineStartTime && Date.now() - offlineStartTime >= 5000) {
-        setIsOffline(true);
+      } else {
+        offlineStartTime = null;
+        setIsOffline(false);
       }
     };
     
     // پشکنینی یەکەم
     check();
     
-    // پشکنین هەر ٣ چرکە
-    checkIntervalId = setInterval(check, 3000);
+    // ١٠ چرکە یەکجار پشکنین (تەنها بۆ بەرکەوتنی هەر دۆخێکی نوێ)
+    checkIntervalId = setInterval(check, 10000);
     
     // گوێ بدە بە eventی online/offline (سەرکیە و خێرا)
     const handleOnline = () => {
@@ -754,7 +723,6 @@ function useOnlineStatus() {
     
     return () => {
       if (checkIntervalId) clearInterval(checkIntervalId);
-      if (pingTimeoutId) clearTimeout(pingTimeoutId);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
