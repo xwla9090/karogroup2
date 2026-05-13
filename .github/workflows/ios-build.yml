@@ -1,0 +1,98 @@
+name: Build iOS IPA
+
+# Trigger: push بۆ main یان manually
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'capacitor.config.json'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build unsigned IPA
+    runs-on: macos-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: 📦 Install npm dependencies
+        run: npm ci || npm install
+      
+      - name: 🌐 Build React web app
+        run: |
+          export CI=false
+          export GENERATE_SOURCEMAP=false
+          npm run build
+      
+      - name: 📱 Install Capacitor packages (if missing)
+        run: |
+          if [ ! -d "node_modules/@capacitor/cli" ]; then
+            npm install --save @capacitor/core @capacitor/cli @capacitor/ios
+          fi
+      
+      - name: 🍎 Add iOS platform
+        run: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+      
+      - name: 🔄 Sync Capacitor with iOS
+        run: npx cap sync ios
+      
+      - name: 🛠️ Build unsigned archive with xcodebuild
+        run: |
+          cd ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath build/App.xcarchive \
+            -allowProvisioningUpdates \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            archive
+      
+      - name: 📦 Create IPA file
+        run: |
+          cd ios/App/build
+          mkdir -p Payload
+          cp -r App.xcarchive/Products/Applications/App.app Payload/
+          zip -qr KaroGroup.ipa Payload
+          rm -rf Payload
+          ls -lh KaroGroup.ipa
+          echo "✅ IPA دروستکرا"
+      
+      - name: ⬆️ Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaroGroup-IPA-${{ github.run_number }}
+          path: ios/App/build/KaroGroup.ipa
+          retention-days: 30
+          if-no-files-found: error
+      
+      - name: 📝 Summary
+        run: |
+          echo "## 🎉 IPA ـی نوێ دروستکرا!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**هەنگاوەکانی نصبکردن:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. دابگرە لە Artifacts-ـی سەرەوە (دوگمەی KaroGroup-IPA-${{ github.run_number }})" >> $GITHUB_STEP_SUMMARY
+          echo "2. ZIP بکەرەوە — IPA دەردەکەوێت" >> $GITHUB_STEP_SUMMARY
+          echo "3. AirDrop یان iCloud لە iPhone بنێرە" >> $GITHUB_STEP_SUMMARY
+          echo "4. Filza بکەرەوە → IPA کلیک بکە → Install" >> $GITHUB_STEP_SUMMARY

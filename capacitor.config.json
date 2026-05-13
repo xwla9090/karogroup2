@@ -1,0 +1,15 @@
+{
+  "appId": "com.karogroup.app",
+  "appName": "Karo Group",
+  "webDir": "build",
+  "server": {
+    "url": "https://www.karo-group.com",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "preferredContentMode": "mobile",
+    "backgroundColor": "#1a1a2e"
+  }
+}
