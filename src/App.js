@@ -25,6 +25,110 @@ import { supabase } from "./supabase";
   }
 })();
 
+// ==================== MOBILE CSS GLOBAL ====================
+(function setupMobileCSS() {
+  if (typeof document === "undefined") return;
+  if (window._karoMobileCSSAdded) return;
+  window._karoMobileCSSAdded = true;
+  
+  const addStyle = () => {
+    if (document.getElementById("karo-mobile-css")) return;
+    const styleEl = document.createElement("style");
+    styleEl.id = "karo-mobile-css";
+    styleEl.textContent = `/* ========== KARO MOBILE STYLES ========== */
+@media (max-width: 768px) {
+  /* Hide dashboard sidebar by default */
+  aside {
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s ease !important;
+  }
+  [dir="rtl"] aside {
+    transform: translateX(100%) !important;
+  }
+  aside.open {
+    transform: translateX(0) !important;
+  }
+  
+  /* Main takes full width */
+  main {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: 60px !important;
+  }
+  
+  /* Reports cards grid: 2 per row */
+  div[style*="grid-template-columns"][style*="240px"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  
+  /* H1 smaller on mobile */
+  main h1 {
+    font-size: 16px !important;
+    padding: 10px 12px !important;
+    margin-bottom: 12px !important;
+  }
+  
+  /* Hamburger button */
+  .mobile-hamburger {
+    display: flex !important;
+    position: fixed !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 200 !important;
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 10px !important;
+    background: #4EA88E !important;
+    color: #fff !important;
+    border: none !important;
+    cursor: pointer !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+    font-size: 22px !important;
+  }
+  [dir="rtl"] .mobile-hamburger {
+    left: auto !important;
+    right: 12px !important;
+  }
+  
+  /* Overlay when sidebar open */
+  .mobile-overlay {
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0,0,0,0.4) !important;
+    z-index: 99 !important;
+  }
+  
+  /* Landing page */
+  .dnav { display: none !important; }
+  .mbtn { display: flex !important; }
+  .project-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+@media (min-width: 769px) {
+  .mbtn { display: none !important; }
+  .mobile-hamburger { display: none !important; }
+  .mobile-overlay { display: none !important; }
+}`;
+    document.head.appendChild(styleEl);
+  };
+  
+  addStyle();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", addStyle);
+  }
+})();
+
 // ==================== SAFE CASH UPDATE HELPER ====================
 // ئەم helper-ـە هەموو نووسینەکان بۆ cash تەیبڵ بە atomic دەکات
 // و پاراستنی تەواوی هەیە لە دژی race ـی Format
