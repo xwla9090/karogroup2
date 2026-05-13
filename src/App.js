@@ -109,6 +109,49 @@ import { supabase } from "./supabase";
     z-index: 99 !important;
   }
   
+  /* Tables: horizontal scroll on mobile */
+  table {
+    min-width: 600px !important;
+    font-size: 12px !important;
+  }
+  
+  /* Wrap tables in scrollable container */
+  /* (Tables are direct children of div containers - make them scrollable) */
+  table {
+    display: table !important;
+  }
+  
+  /* Find any container that holds a table — make it scroll horizontally */
+  div:has(> table) {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Reduce table cell padding on mobile */
+  table th, table td {
+    padding: 8px 6px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Reduce button sizes inside tables */
+  table button {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+  }
+  
+  /* Smaller input fields on mobile */
+  input, select, textarea {
+    font-size: 14px !important;
+  }
+  
+  /* Buttons row at top of pages - wrap on mobile */
+  div[style*="flexWrap"] {
+    gap: 6px !important;
+  }
+  
   /* Landing page */
   .dnav { display: none !important; }
   .mbtn { display: flex !important; }
