@@ -1096,9 +1096,20 @@ export default function App() {
     else logoTimer.current = setTimeout(() => setLogoClicks(0), 2000);
   };
 
-  const handleLogin = (u, p) => {
+  const handleLogin = async (u, p) => {
     const user = users.find(x => x.username === u && x.password === p);
-    if (user) { 
+    if (user) {
+      /* ⭐ Single session lock: session_id ـی نوێ دروست بکە
+         هەر ئامێری دیکە کە هەمان ئەکاونت بەکاردێنێت، خۆکار لۆگئاوت دەبێت */
+      const newSessionId = Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2);
+      try {
+        localStorage.setItem("karo_session_id", newSessionId);
+        await supabase.from("users").update({ session_id: newSessionId }).eq("username", user.username);
+        console.log("[session] 🔑 new session created: " + newSessionId.slice(0, 8) + "...");
+      } catch (e) {
+        console.error("[session] login update error:", e);
+      }
+      
       setLoggedUser(user); 
       setPage("dashboard"); 
       setDashPage("reports"); 
@@ -1108,11 +1119,65 @@ export default function App() {
   };
   
   const handleLogout = () => { 
+    /* ⭐ session_id لاکی local پاک بکەرەوە (DB-ی نا لاببە — بمێنێتەوە) */
+    localStorage.removeItem("karo_session_id");
     setLoggedUser(null); 
     setPage("landing"); 
     localStorage.removeItem("karo_user"); 
     setLS("karo_page", "landing"); 
   };
+  
+  /* ⭐⭐⭐ SINGLE SESSION CHECK: هەر ٣ چرکە دڵنیابوون بکە
+     ئەگەر هەمان ئەکاونت لە شوێنێکی دیکە لۆگ ئین بێت، ئەم ئامێرە بێ ئاگاداری
+     لۆگ ئاوت بێت بۆ پەڕەی Login */
+  useEffect(() => {
+    if (!loggedUser || !loggedUser.username) return;
+    
+    let isMounted = true;
+    
+    const checkSession = async () => {
+      if (!navigator.onLine) return; // ئەگەر offline ـە، چاوەڕێ بکە
+      if (!isMounted) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("session_id")
+          .eq("username", loggedUser.username)
+          .maybeSingle();
+        
+        if (error || !data) return; // ئاسایی، رەنگە network کێشە بێت
+        if (!isMounted) return;
+        
+        const localSessionId = localStorage.getItem("karo_session_id");
+        const dbSessionId = data.session_id;
+        
+        // ئەگەر هەردووکیان هەن و جیاوازن → کیک ئاوت
+        if (localSessionId && dbSessionId && dbSessionId !== localSessionId) {
+          console.log("[session] 🔒 kicked out — logged in elsewhere (db=" + dbSessionId.slice(0, 8) + "..., me=" + localSessionId.slice(0, 8) + "...)");
+          localStorage.removeItem("karo_session_id");
+          localStorage.removeItem("karo_user");
+          setLS("karo_page", "login");
+          setLoggedUser(null);
+          setPage("login");
+        }
+      } catch (e) {
+        // network یان parsing کێشە — بێ کاتی ئەوتر، چاوەڕێ بکە
+      }
+    };
+    
+    // یەکەم پشکنین خێرا (پاش ٢ چرکە، کاتی پێ بدە بە login)
+    const initialTimer = setTimeout(checkSession, 2000);
+    
+    // پاشان هەر ٣ چرکە
+    const intervalId = setInterval(checkSession, 3000);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(initialTimer);
+      clearInterval(intervalId);
+    };
+  }, [loggedUser]);
 
   const markMessageAsRead = (messageId) => {
     setMessages(prev => prev.map(m => 
