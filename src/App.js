@@ -677,6 +677,186 @@ const StickyHeader = ({ children, s }) => (
 );
 
 // ==================== APP ====================
+// ==================== OFFLINE DETECTION HOOK ====================
+// ئەم hook ئەزموونی پەیوەندی دەکات بە دوو شێواز:
+// ١. navigator.onLine (Wi-Fi یان سیمکارت کاردەکات؟)
+// ٢. ping بۆ Supabase (ڕاستی پەیوەندی هەیە؟)
+function useOnlineStatus() {
+  const [isOffline, setIsOffline] = useState(false);
+  
+  useEffect(() => {
+    let offlineStartTime = null;
+    let pingTimeoutId = null;
+    let checkIntervalId = null;
+    
+    // Supabase URL لە environment یان بەکارهێنە
+    const SUPABASE_URL = "https://scwgsaglnpyvkblegewd.supabase.co";
+    
+    // ping بۆ Supabase — timeout 3 چرکە
+    const pingSupabase = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        // HEAD request بۆ کەمکردنەوەی داتا
+        const response = await fetch(SUPABASE_URL + "/rest/v1/", {
+          method: "HEAD",
+          signal: controller.signal,
+          cache: "no-store"
+        });
+        clearTimeout(timeoutId);
+        // 200, 401, 404 هەموو OK ـن — واتە سێرڤەر بەردەستە
+        return response.status > 0;
+      } catch (e) {
+        return false;
+      }
+    };
+    
+    const check = async () => {
+      // ١. سەرەتا navigator.onLine بپشکنە
+      if (!navigator.onLine) {
+        if (!offlineStartTime) offlineStartTime = Date.now();
+      } else {
+        // ٢. ping بۆ Supabase
+        const ok = await pingSupabase();
+        if (ok) {
+          // پەیوەندی هەیە — یەکسەر isOffline = false بکە
+          offlineStartTime = null;
+          setIsOffline(false);
+          return;
+        }
+        // ping نا — بەڵام navigator.onLine = true. لەوانەیە کێشە لە سێرڤەر بێت
+        if (!offlineStartTime) offlineStartTime = Date.now();
+      }
+      
+      // ٣. ئەگەر ٥ چرکە یان زیاتر offline بووە، غەڵت بنیشاندە
+      if (offlineStartTime && Date.now() - offlineStartTime >= 5000) {
+        setIsOffline(true);
+      }
+    };
+    
+    // پشکنینی یەکەم
+    check();
+    
+    // پشکنین هەر ٣ چرکە
+    checkIntervalId = setInterval(check, 3000);
+    
+    // گوێ بدە بە eventی online/offline (سەرکیە و خێرا)
+    const handleOnline = () => {
+      // یەکسەر پشکنین بکە
+      check();
+    };
+    const handleOffline = () => {
+      offlineStartTime = Date.now();
+      // پاش ٥ چرکە، غەڵت دەردەکەوێت لە چێکی دواتر
+    };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    
+    return () => {
+      if (checkIntervalId) clearInterval(checkIntervalId);
+      if (pingTimeoutId) clearTimeout(pingTimeoutId);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+  
+  return isOffline;
+}
+
+// ==================== OFFLINE OVERLAY COMPONENT ====================
+function OfflineOverlay({ lang }) {
+  // پیام بە کوردی، عەرەبی، ئینگلیزی
+  const messages = {
+    ku: {
+      title: "ئینتەرنێت نییە",
+      desc: "تکایە ئینتەرنێت چاک بکە تا بتوانیت داتا تۆمار بکەی",
+      wait: "چاوەڕێی پەیوەندی..."
+    },
+    ar: {
+      title: "لا يوجد إنترنت",
+      desc: "يرجى التحقق من اتصال الإنترنت لحفظ البيانات",
+      wait: "في انتظار الاتصال..."
+    },
+    en: {
+      title: "No Internet Connection",
+      desc: "Please check your internet connection to save data",
+      wait: "Waiting for connection..."
+    }
+  };
+  const m = messages[lang] || messages.ku;
+  
+  return (
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(0, 0, 0, 0.85)",
+      backdropFilter: "blur(8px)",
+      WebkitBackdropFilter: "blur(8px)",
+      zIndex: 99999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 20,
+      fontFamily: "inherit"
+    }}>
+      <div style={{
+        background: "#fff",
+        borderRadius: 16,
+        padding: "40px 30px",
+        maxWidth: 400,
+        width: "100%",
+        textAlign: "center",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.5)"
+      }}>
+        <div style={{
+          fontSize: 72,
+          marginBottom: 16,
+          lineHeight: 1
+        }}>🚫</div>
+        <div style={{
+          fontSize: 22,
+          fontWeight: 700,
+          color: "#d32f2f",
+          marginBottom: 12
+        }}>{m.title}</div>
+        <div style={{
+          fontSize: 15,
+          color: "#555",
+          marginBottom: 24,
+          lineHeight: 1.6
+        }}>{m.desc}</div>
+        <div style={{
+          fontSize: 13,
+          color: "#888",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8
+        }}>
+          <span>{m.wait}</span>
+          <span style={{
+            display: "inline-block",
+            width: 20,
+            height: 20,
+            border: "2px solid #ddd",
+            borderTopColor: "#d32f2f",
+            borderRadius: "50%",
+            animation: "karo-spin 0.8s linear infinite"
+          }}></span>
+        </div>
+      </div>
+      <style>{`
+        @keyframes karo-spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function App() {
   const [lang, setLang] = useState(getLS("karo_lang", "ku"));
   const [dark, setDark] = useState(getLS("karo_dark", false));
@@ -937,8 +1117,14 @@ export default function App() {
     messages, setMessages, unreadCount, markMessageAsRead
   };
 
-  if (page === "login") return <LoginPage {...shared} onLogin={handleLogin} onBack={() => setPage("landing")} />;
-  if (page === "dashboard" && loggedUser) return <><AutoSync project={loggedUser.project} cashIQD={cashIQD} cashUSD={cashUSD} exchangeRate={exchangeRate} users={users} /><RealtimeSync project={loggedUser.project}
+  // ⭐⭐⭐ پشکنینی پەیوەندی ئینتەرنێت
+  const isOffline = useOnlineStatus();
+  
+  // ئەگەر offline ـە، غەڵت دەنیشێنە (لە هەموو پەڕەکان)
+  const offlineOverlay = isOffline ? <OfflineOverlay lang={lang} /> : null;
+  
+  if (page === "login") return <>{offlineOverlay}<LoginPage {...shared} onLogin={handleLogin} onBack={() => setPage("landing")} /></>;
+  if (page === "dashboard" && loggedUser) return <>{offlineOverlay}<AutoSync project={loggedUser.project} cashIQD={cashIQD} cashUSD={cashUSD} exchangeRate={exchangeRate} users={users} /><RealtimeSync project={loggedUser.project}
     onExpUpdate={data => {
       const mapped = data.map(e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked }));
       localStorage.setItem("karo_exp_" + loggedUser.project, JSON.stringify(mapped));
@@ -960,7 +1146,7 @@ export default function App() {
       window.dispatchEvent(new Event("karoDataUpdate"));
     }}
   /><Dashboard {...shared} setLang={setLang} user={loggedUser} dashPage={dashPage} setDashPage={setDashPage} onLogout={handleLogout} setDark={setDark} fontIdx={fontIdx} setFontIdx={setFontIdx} />  </>
-  return <LandingPage {...shared} setLang={setLang} setDark={setDark} onLogoClick={handleLogoClick} />;
+  return <>{offlineOverlay}<LandingPage {...shared} setLang={setLang} setDark={setDark} onLogoClick={handleLogoClick} /></>;
 }
 
 // ==================== LANDING ====================
