@@ -3215,7 +3215,7 @@ function CashPage({ t, s, isRtl, pKey, exchangeRate, user, addCashLog, cashIQD, 
 }
 
 // ==================== LOANS ====================
-function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
+function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, exchangeRate, addCashLog, isFrozen }) {
   const KEY = `karo_loans_${pKey}`;
   const PERSONS_KEY = `karo_loanPersons_${pKey}`;
   
@@ -3594,6 +3594,37 @@ function LoansPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD
                 <strong style={{ color: "#EF4444", fontSize: 15 }}>${fmt(totalGiveUSD)}</strong>
               </div>
             </div>
+            
+            {/* ⭐ ٣ کارتی پاککراو — تەنها کاتێک کەسێک فلتەر کرابێت */}
+            {selectedPerson && (() => {
+              const netIQD = totalTakeIQD - totalGiveIQD;
+              const netUSD = totalTakeUSD - totalGiveUSD;
+              const rate = Number(exchangeRate) || 1500;
+              const netCombined = netIQD + (netUSD * rate);
+              const colorIQD = netIQD >= 0 ? "#059669" : "#EF4444";
+              const bgIQD = netIQD >= 0 ? "#D1FAE5" : "#FEE2E2";
+              const colorUSD = netUSD >= 0 ? "#059669" : "#EF4444";
+              const bgUSD = netUSD >= 0 ? "#D1FAE5" : "#FEE2E2";
+              const colorComb = netCombined >= 0 ? "#059669" : "#EF4444";
+              const bgComb = netCombined >= 0 ? "#D1FAE5" : "#FEE2E2";
+              const labelText = netCombined >= 0 ? "قەرزداری ئێمە" : "ئێمە قەرزدارین";
+              return (
+                <div style={{ display: "flex", gap: 15, marginBottom: 15, flexWrap: "wrap", justifyContent: "center" }}>
+                  <div style={{ background: bgIQD, borderRadius: 8, padding: "8px 16px", textAlign: "center", border: "2px solid " + colorIQD }}>
+                    <span style={{ color: colorIQD, fontSize: 11 }}>پاکی ({t.iqd}): </span>
+                    <strong style={{ color: colorIQD, fontSize: 15 }}>{(netIQD < 0 ? "-" : "") + fmt(Math.abs(netIQD))}</strong>
+                  </div>
+                  <div style={{ background: bgUSD, borderRadius: 8, padding: "8px 16px", textAlign: "center", border: "2px solid " + colorUSD }}>
+                    <span style={{ color: colorUSD, fontSize: 11 }}>پاکی ({t.usd}): </span>
+                    <strong style={{ color: colorUSD, fontSize: 15 }}>{(netUSD < 0 ? "-$" : "$") + fmt(Math.abs(netUSD))}</strong>
+                  </div>
+                  <div style={{ background: bgComb, borderRadius: 8, padding: "10px 20px", textAlign: "center", border: "2px solid " + colorComb, fontWeight: 700 }}>
+                    <span style={{ color: colorComb, fontSize: 12 }}>🎯 {labelText} ({t.iqd}): </span>
+                    <strong style={{ color: colorComb, fontSize: 17 }}>{fmt(Math.abs(netCombined))}</strong>
+                  </div>
+                </div>
+              );
+            })()}
             <div style={{ display: "flex", gap: 15, marginBottom: 15, flexWrap: "wrap", justifyContent: "center" }}>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <select value={selectedPerson} onChange={e=>setSelectedPerson(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 13, textAlign: "center" }}>
@@ -4605,7 +4636,7 @@ function ConcretePage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCash
 }
 
 // ==================== CONTRACTOR ====================
-function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen }) {
+function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCashUSD, exchangeRate, addCashLog, isFrozen }) {
   const KEY = `karo_contr_${pKey}`;
   const PKEY = `karo_contrPersons_${pKey}`;
   const [items, setItems] = useState(getLS(KEY, []));
@@ -4918,6 +4949,37 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
             <strong style={{ color: "#059669", fontSize: 15 }}>${fmt(totalAddUSD)}</strong>
           </div>
         </div>
+        
+        {/* ⭐ ٣ کارتی پاککراو — تەنها کاتێک کەسێک فلتەر کرابێت */}
+        {selectedPerson && (() => {
+          const netIQD = totalWithdrawIQD - totalAddIQD;
+          const netUSD = totalWithdrawUSD - totalAddUSD;
+          const rate = Number(exchangeRate) || 1500;
+          const netCombined = netIQD + (netUSD * rate);
+          const colorIQD = netIQD >= 0 ? "#059669" : "#EF4444";
+          const bgIQD = netIQD >= 0 ? "#D1FAE5" : "#FEE2E2";
+          const colorUSD = netUSD >= 0 ? "#059669" : "#EF4444";
+          const bgUSD = netUSD >= 0 ? "#D1FAE5" : "#FEE2E2";
+          const colorComb = netCombined >= 0 ? "#059669" : "#EF4444";
+          const bgComb = netCombined >= 0 ? "#D1FAE5" : "#FEE2E2";
+          const labelText = netCombined >= 0 ? "قەرزداری ئێمە" : "ئێمە قەرزدارین";
+          return (
+            <div style={{ display: "flex", gap: 15, marginBottom: 15, flexWrap: "wrap", justifyContent: "center" }}>
+              <div style={{ background: bgIQD, borderRadius: 8, padding: "8px 16px", textAlign: "center", border: "2px solid " + colorIQD }}>
+                <span style={{ color: colorIQD, fontSize: 11 }}>پاکی ({t.iqd}): </span>
+                <strong style={{ color: colorIQD, fontSize: 15 }}>{(netIQD < 0 ? "-" : "") + fmt(Math.abs(netIQD))}</strong>
+              </div>
+              <div style={{ background: bgUSD, borderRadius: 8, padding: "8px 16px", textAlign: "center", border: "2px solid " + colorUSD }}>
+                <span style={{ color: colorUSD, fontSize: 11 }}>پاکی ({t.usd}): </span>
+                <strong style={{ color: colorUSD, fontSize: 15 }}>{(netUSD < 0 ? "-$" : "$") + fmt(Math.abs(netUSD))}</strong>
+              </div>
+              <div style={{ background: bgComb, borderRadius: 8, padding: "10px 20px", textAlign: "center", border: "2px solid " + colorComb, fontWeight: 700 }}>
+                <span style={{ color: colorComb, fontSize: 12 }}>🎯 {labelText} ({t.iqd}): </span>
+                <strong style={{ color: colorComb, fontSize: 17 }}>{fmt(Math.abs(netCombined))}</strong>
+              </div>
+            </div>
+          );
+        })()}
       </StickyHeader>
 
       {!isFrozen && showForm && (
