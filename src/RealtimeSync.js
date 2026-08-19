@@ -1,337 +1,234 @@
+/* ============================================================================
+   REALTIME SYNC  (v3)
+   ----------------------------------------------------------------------------
+   • گۆڕانکاری لە ئامێرێکی تر یەکسەر جێبەجێ دەبێت — بە payload ـی Realtime
+     خۆی، بەبێ هیچ fetch ـێکی زیادە. (دواکەوتن ≈ ٥٠–٢٠٠ms)
+   • هیچ فلاگی بلۆککەری گشتی (_karoLocal) نییە. پاراستن لە ڕێگەی
+     pending-queue ـی sync.js دەکرێت، کە وردترە و ڕیز-بە-ڕیزە.
+   • هیچ کاتێک localStorage بە تەواوی لە جیاتی داتای سێرڤەر دانانرێت —
+     هەمیشە MERGE دەکرێت.
+   ========================================================================== */
+
 import { useEffect, useRef } from "react";
 import { supabase } from "./supabase";
+import {
+  SYNCED_TABLES, TABLES,
+  applyRemoteRow, applyRemoteDelete,
+  reconcileAll, flush, flushCashQueue, emitUpdate, cashBusy
+} from "./sync";
 
-export default function RealtimeSync({ project, onExpUpdate, onConcUpdate, onCashUpdate, setCashIQD, setCashUSD }) {
-  // ============ REFS بۆ callbacks (چارەسەری stale closure) ============
-  const onExpUpdateRef = useRef(onExpUpdate);
-  const onConcUpdateRef = useRef(onConcUpdate);
+const RECONCILE_MS = 45000;   // تۆڕی سەلامەتی
+const CASH_POLL_MS = 20000;
+
+export default function RealtimeSync({ project, onCashUpdate, setCashIQD, setCashUSD, setExchangeRate }) {
   const onCashUpdateRef = useRef(onCashUpdate);
   const setCashIQDRef = useRef(setCashIQD);
   const setCashUSDRef = useRef(setCashUSD);
+  const setRateRef = useRef(setExchangeRate);
 
   useEffect(() => {
-    onExpUpdateRef.current = onExpUpdate;
-    onConcUpdateRef.current = onConcUpdate;
     onCashUpdateRef.current = onCashUpdate;
     setCashIQDRef.current = setCashIQD;
     setCashUSDRef.current = setCashUSD;
+    setRateRef.current = setExchangeRate;
   });
 
-  const dataHashRef = useRef({});
-  const cashHashRef = useRef("");
-  const personsHashRef = useRef("");
-  const cashPollRef = useRef(null);
-  const fullPollRef = useRef(null);
+  const cashSigRef = useRef("");
+  const personsSigRef = useRef("");
   const reloadingRef = useRef(false);
-  /* ⭐ In-flight protection: نەهێڵە دوو polling هاوکات کاربکەن */
-  const cashInFlightRef = useRef(false);
-  const fullInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!project) return;
+    reloadingRef.current = false;
 
-    // ============ MAPPERS ============
-    const expMapper = e => ({ id: e.id, date: e.date, amountIQD: e.amountiqd, amountUSD: e.amountusd, receiptNo: e.receiptno, note: e.note, marked: e.marked });
+    /* ================= CASH ================= */
+    const applyCash = (row) => {
+      if (!row || reloadingRef.current) return;
 
-    const concMapper = c => ({ id: c.id, date: c.date, currency: c.currency, meters: c.meters, pricePerMeter: c.pricepermeter, totalPrice: c.totalprice, deposit: c.deposit, depositPercent: c.depositpercent, received: c.received, isReceived: c.isreceived, depositClaimed: c.depositclaimed, note: c.note, marked: c.marked, paidAmount: c.paidamount, payments: (() => { try { return Array.isArray(c.payments) ? c.payments : JSON.parse(c.payments || "[]"); } catch (e) { return []; } })() });
+      /* ---- پشکنینی Format ---- */
+      const formattedAt = row.formatted_at || "";
+      if (formattedAt) {
+        const localFormatted = localStorage.getItem("karo_formatted_" + project);
+        if (localFormatted && localFormatted !== formattedAt) {
+          console.log("[RealtimeSync] 🚨 FORMAT DETECTED — clearing local + reload");
+          reloadingRef.current = true;
+          window._karoFormatting = true;
+          localStorage.setItem("karo_formatted_" + project, formattedAt);
+          SYNCED_TABLES.forEach(t => localStorage.setItem(TABLES[t].lsKey + project, "[]"));
+          localStorage.setItem("karo_cashIQD_" + project, "0");
+          localStorage.setItem("karo_cashUSD_" + project, "0");
+          localStorage.setItem("karo_cashLog_" + project, "[]");
+          /* ڕیزی چاوەڕوان و tombstone ـەکانیش پاک بکەرەوە — ئەگینا
+             پاش Format داتای کۆن دیسان دەنێردرێتەوە */
+          localStorage.removeItem("karo_pending_v3");
+          localStorage.removeItem("karo_tomb_v3");
+          localStorage.removeItem("karo_cashq_v3");
+          setTimeout(() => window.location.reload(), 1500);
+          return;
+        }
+        if (!localFormatted) localStorage.setItem("karo_formatted_" + project, formattedAt);
+      }
 
-    const loanMapper = l => ({ id: l.id, date: l.date, type: l.type, personName: l.personname, amountIQD: l.amountiqd, amountUSD: l.amountusd, note: l.note, returned: l.returned, marked: l.marked });
+      /* ---- ئەگەر delta ـێکی خۆمان لە ڕێگادایە، چاوەڕێ بکە ----
+         (RPC ـەکە خۆی نرخی دروست دەگەڕێنێتەوە و دایدەنێت) */
+      if (cashBusy()) return;
 
-    const contrMapper = c => ({ id: c.id, date: c.date, type: c.type, personName: c.personname, amountIQD: c.amountiqd, amountUSD: c.amountusd, note: c.note, marked: c.marked });
+      const iqd = Number(row.cashiqd || 0);
+      const usd = Number(row.cashusd || 0);
+      const rate = Number(row.exchangerate || 0) || 1500;
+      const log = row.cashlog == null ? null : row.cashlog;
 
-    const invMapper = i => ({ id: i.id, date: i.date, invoiceNo: i.invoiceno, currency: i.currency, billTo: i.billto, billPhone: i.billphone, items: (() => { try { return Array.isArray(i.items) ? i.items : JSON.parse(i.items || "[]"); } catch (e) { return []; } })(), total: i.total, marked: i.marked });
+      const sig = iqd + ":" + usd + ":" + rate + ":" + (typeof log === "string" ? log.length : 0);
+      if (sig === cashSigRef.current) return;
+      cashSigRef.current = sig;
 
-    // ============ HASH HELPER ============
-    const hashRows = (rows) => {
-      if (!Array.isArray(rows)) return "";
-      return rows.length + ":" + rows.map(r => JSON.stringify(r)).sort().join("|").length;
+      localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(iqd));
+      localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(usd));
+      localStorage.setItem("karo_rate_" + project, JSON.stringify(rate));
+      if (log != null) {
+        localStorage.setItem("karo_cashLog_" + project,
+          typeof log === "string" ? log : JSON.stringify(log));
+      }
+
+      if (onCashUpdateRef.current) {
+        onCashUpdateRef.current({ cashiqd: iqd, cashusd: usd, exchangerate: rate, cashlog: log });
+      } else {
+        if (setCashIQDRef.current) setCashIQDRef.current(iqd);
+        if (setCashUSDRef.current) setCashUSDRef.current(usd);
+        if (setRateRef.current) setRateRef.current(rate);
+      }
+      emitUpdate();
     };
 
-    // ============ FETCH TABLE ============
-    const fetchTable = async (table, localKey, mapper) => {
-      if (reloadingRef.current) return;
-      try {
-        const { data, error } = await supabase.from(table).select("*").eq("project", project);
-        if (error || !data) return;
-
-        const hash = hashRows(data);
-        if (hash === dataHashRef.current[table]) return;
-        dataHashRef.current[table] = hash;
-
-        localStorage.setItem(localKey + project, JSON.stringify(data.map(mapper)));
-        window.dispatchEvent(new Event("karoDataUpdate"));
-      } catch (e) {
-        console.error("[RealtimeSync] fetchTable error:", table, e);
+    /* sync.js پاش هەر RPC ـێکی قاسە ئەمە بانگ دەکات */
+    window.__karoOnCashFromServer = (c) => {
+      cashSigRef.current = "";
+      if (onCashUpdateRef.current) onCashUpdateRef.current(c);
+      else {
+        if (setCashIQDRef.current) setCashIQDRef.current(c.cashiqd);
+        if (setCashUSDRef.current) setCashUSDRef.current(c.cashusd);
       }
     };
 
-    // ============ FETCH CASH ============
     const fetchCash = async () => {
-      if (reloadingRef.current) return;
-      /* ⭐ In-flight protection */
-      if (cashInFlightRef.current) return;
-      cashInFlightRef.current = true;
+      if (reloadingRef.current || !navigator.onLine) return;
       try {
-        const { data: cashData, error } = await supabase.from("cash").select("*").eq("project", project).maybeSingle();
-        if (error) { console.error("[RealtimeSync] fetchCash error:", error); return; }
-        if (!cashData) return;
-
-        const realCashIQD = Number(cashData.cashiqd || 0);
-        const realCashUSD = Number(cashData.cashusd || 0);
-        const exchangeRate = cashData.exchangerate || 1500;
-        const cashlog = cashData.cashlog || "[]";
-        const formattedAt = cashData.formatted_at || "";
-
-        // ⭐⭐⭐ FORMAT DETECTION (پشکنینی Format) ⭐⭐⭐
-        if (formattedAt) {
-          const localFormatted = localStorage.getItem("karo_formatted_" + project);
-          
-          if (localFormatted && localFormatted !== formattedAt) {
-            console.log("[RealtimeSync] 🚨 FORMAT DETECTED — blocking AutoSync + reloading");
-            
-            // ⭐⭐⭐ گرنگ: یەکەم فلاگی Format دانێ — AutoSync یەکسەر بلۆک دەبێت
-            window._karoFormatting = true;
-            reloadingRef.current = true;
-            
-            // localStorage بە تەواوی پاک بکەرەوە
-            localStorage.setItem("karo_formatted_" + project, formattedAt);
-            localStorage.setItem("karo_exp_" + project, "[]");
-            localStorage.setItem("karo_conc_" + project, "[]");
-            localStorage.setItem("karo_loans_" + project, "[]");
-            localStorage.setItem("karo_contr_" + project, "[]");
-            localStorage.setItem("karo_inv_" + project, "[]");
-            localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(0));
-            localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(0));
-            localStorage.setItem("karo_cashLog_" + project, "[]");
-            
-            // ٢٠٠ ملی چرکە چاوەڕێ، دواتر reload
-            // ⭐ ٥ چرکە چاوەڕێ بکە — کاتی پیت بدە بە براوسەری دیکە
-            // کە سڕینەوەکان تەواو بکات پێش ئەوەی ئەم براوسەرە reload بکات
-            setTimeout(() => {
-              console.log("[RealtimeSync] reloading after 5s wait for Chrome to finish format");
-              window.location.reload();
-            }, 5000);
-            return;
-          }
-          
-          // یەکەم جار: تەنها save بکە
-          if (!localFormatted) {
-            localStorage.setItem("karo_formatted_" + project, formattedAt);
-          }
-        }
-
-        const cashHash = realCashIQD + ":" + realCashUSD + ":" + exchangeRate + ":" + cashlog.length + ":" + formattedAt;
-
-        if (cashHash === cashHashRef.current) return;
-        
-        /* ⭐⭐⭐ HARD WRITE LOCK: ئەگەر safeUpdateCash لە کاردایە، هیچ مەکە
-           ئەمە دەکات هیچ source نەتوانێت داتای کۆن بەسەر local state ـدا بخاتە سەری */
-        if (window._cashWriteInProgress) {
-          console.log("[RealtimeSync] 🔒 skipping cash sync — write in progress");
-          return;
-        }
-        
-        /* ⭐ لاک بەرز کرا بۆ ١٥ چرکە — payload گەورەیە کاتی پتر دەوێت */
-        const localUpdateAge = Date.now() - (window._cashLocalUpdateTime || 0);
-        if (localUpdateAge < 15000) {
-          console.log("[RealtimeSync] ⏱️ skipping cash sync — recent local update (" + (localUpdateAge/1000).toFixed(1) + "s ago)");
-          return;
-        }
-        
-        cashHashRef.current = cashHash;
-
-        localStorage.setItem("karo_cashIQD_" + project, JSON.stringify(realCashIQD));
-        localStorage.setItem("karo_cashUSD_" + project, JSON.stringify(realCashUSD));
-
-        if (cashData.cashlog) {
-          localStorage.setItem("karo_cashLog_" + project, cashData.cashlog);
-        }
-
-        window._cashUpdatedByMe = false;
-
-        if (onCashUpdateRef.current) {
-          onCashUpdateRef.current({
-            cashiqd: realCashIQD,
-            cashusd: realCashUSD,
-            exchangerate: exchangeRate,
-            cashlog: cashlog
-          });
-        } else {
-          if (setCashIQDRef.current) setCashIQDRef.current(realCashIQD);
-          if (setCashUSDRef.current) setCashUSDRef.current(realCashUSD);
-        }
-
-        window.dispatchEvent(new Event("karoDataUpdate"));
-      } catch (e) {
-        console.error("[RealtimeSync] fetchCash error:", e);
-      } finally {
-        cashInFlightRef.current = false;
-      }
+        const { data, error } = await supabase.from("cash").select("*")
+          .eq("project", project).maybeSingle();
+        if (error || !data) return;
+        applyCash(data);
+      } catch (e) { /* بێدەنگ — polling دواتر دووبارە هەوڵ دەدات */ }
     };
 
-    // ============ FETCH PERSONS ============
+    /* ================= PERSONS ================= */
     const fetchPersons = async () => {
-      if (reloadingRef.current) return;
+      if (reloadingRef.current || !navigator.onLine) return;
       try {
         const { data } = await supabase.from("persons").select("*").eq("project", project);
         if (!data) return;
-
-        const loanPersons = data.filter(p => p.type === "loan").map(p => p.name);
-        const contrPersons = data.filter(p => p.type === "contractor").map(p => p.name);
-        const hash = JSON.stringify(loanPersons) + "|" + JSON.stringify(contrPersons);
-
-        if (hash === personsHashRef.current) return;
-        personsHashRef.current = hash;
-
-        localStorage.setItem("karo_loanPersons_" + project, JSON.stringify(loanPersons));
-        localStorage.setItem("karo_contrPersons_" + project, JSON.stringify(contrPersons));
-        window.dispatchEvent(new Event("karoDataUpdate"));
-      } catch (e) {
-        console.error("[RealtimeSync] fetchPersons error:", e);
-      }
+        const loanP = data.filter(p => p.type === "loan").map(p => p.name);
+        const contrP = data.filter(p => p.type === "contractor").map(p => p.name);
+        const sig = JSON.stringify(loanP) + "|" + JSON.stringify(contrP);
+        if (sig === personsSigRef.current) return;
+        personsSigRef.current = sig;
+        localStorage.setItem("karo_loanPersons_" + project, JSON.stringify(loanP));
+        localStorage.setItem("karo_contrPersons_" + project, JSON.stringify(contrP));
+        emitUpdate();
+      } catch (e) {}
     };
 
-    // ============ FETCH ALL ============
-    const fetchAll = async () => {
-      if (!navigator.onLine || reloadingRef.current) return;
-      /* ⭐ In-flight protection: ئەگەر full poll لە ڕیزدایە، نوێ مەکە */
-      if (fullInFlightRef.current) return;
-      fullInFlightRef.current = true;
-      try {
-        // ⭐ یەکەم cash بپشکنە — ئەگەر format بوو reload دەکات
-        await fetchCash();
-        if (reloadingRef.current) return;
-        await Promise.all([
-          fetchTable("expenses", "karo_exp_", expMapper),
-          fetchTable("concrete", "karo_conc_", concMapper),
-          fetchTable("loans", "karo_loans_", loanMapper),
-          fetchTable("contractor", "karo_contr_", contrMapper),
-          fetchTable("invoices", "karo_inv_", invMapper),
-          fetchPersons()
-        ]);
-      } finally {
-        fullInFlightRef.current = false;
-      }
-    };
-
-    // ============ یەکەم بارکردن ============
-    // ⭐ گرنگ: ئەگەر تازە format کرابێت (کەمتر لە ١٥ چرکە)، ٥ چرکە چاوەڕێ بکە
-    // ئەمە کاتە دەدات بە براوسەری دیکە کە سڕینەوەی تەیبڵەکان تەواو بکات
-    // پێش ئەوەی ئەم براوسەرە fetchAll بکات و داتای کۆن بخوێنێتەوە
-    (() => {
-      const localFormatted = localStorage.getItem("karo_formatted_" + project) || "";
-      let isRecentFormat = false;
-      if (localFormatted) {
-        try {
-          const ageMs = Date.now() - new Date(localFormatted).getTime();
-          if (ageMs >= 0 && ageMs < 15000) {
-            isRecentFormat = true;
-            console.log("[RealtimeSync] 🕐 Recent format detected (age=" + (ageMs/1000).toFixed(1) + "s) — delaying first fetchAll by 5s");
-          }
-        } catch (e) {}
-      }
-      
-      if (isRecentFormat) {
-        // فلاگ بەرز بکە — هیچ fetch یان subscription کار ناکات
-        reloadingRef.current = true;
-        setTimeout(() => {
-          console.log("[RealtimeSync] ✅ 5s delay over — running first fetchAll now");
-          reloadingRef.current = false;
-          fetchAll();
-        }, 5000);
-      } else {
-        fetchAll();
-      }
+    /* ================= یەکەم بارکردن ================= */
+    let alive = true;
+    (async () => {
+      await fetchCash();
+      if (!alive || reloadingRef.current) return;
+      await reconcileAll(project);
+      if (!alive) return;
+      await fetchPersons();
+      emitUpdate();
     })();
 
-    // ============ REALTIME SUBSCRIPTIONS ============
-    const channelSuffix = "_" + Date.now();
+    /* ================= REALTIME (دەستبەجێ) ================= */
+    const chans = [];
+    const suffix = "_" + project + "_" + Date.now();
 
-    const expSub = supabase.channel("exp_rt_" + project + channelSuffix)
-      .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: "project=eq." + project },
-        () => {
-          fetchTable("expenses", "karo_exp_", expMapper);
-          fetchCash();
-        }).subscribe();
+    for (const table of SYNCED_TABLES) {
+      const ch = supabase
+        .channel(table + "_rt" + suffix)
+        .on("postgres_changes",
+          { event: "*", schema: "public", table, filter: "project=eq." + project },
+          (payload) => {
+            if (reloadingRef.current) return;
+            let changed = false;
+            if (payload.eventType === "DELETE") {
+              const id = payload.old && payload.old.id;
+              if (id != null) changed = applyRemoteDelete(table, project, id);
+            } else if (payload.new) {
+              /* ⭐ ڕاستەوخۆ لە payload ـەوە — هیچ fetch ـێکی زیادە نییە */
+              changed = applyRemoteRow(table, project, payload.new);
+            }
+            if (changed) emitUpdate();
+          })
+        .subscribe();
+      chans.push(ch);
+    }
 
-    const concSub = supabase.channel("conc_rt_" + project + channelSuffix)
-      .on("postgres_changes", { event: "*", schema: "public", table: "concrete", filter: "project=eq." + project },
-        () => {
-          fetchTable("concrete", "karo_conc_", concMapper);
-          fetchCash();
-        }).subscribe();
+    const cashCh = supabase
+      .channel("cash_rt" + suffix)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "cash", filter: "project=eq." + project },
+        (payload) => { if (payload.new) applyCash(payload.new); })
+      .subscribe();
+    chans.push(cashCh);
 
-    const loanSub = supabase.channel("loan_rt_" + project + channelSuffix)
-      .on("postgres_changes", { event: "*", schema: "public", table: "loans", filter: "project=eq." + project },
-        () => {
-          fetchTable("loans", "karo_loans_", loanMapper);
-          fetchCash();
-        }).subscribe();
+    const personsCh = supabase
+      .channel("persons_rt" + suffix)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "persons", filter: "project=eq." + project },
+        () => fetchPersons())
+      .subscribe();
+    chans.push(personsCh);
 
-    const contrSub = supabase.channel("contr_rt_" + project + channelSuffix)
-      .on("postgres_changes", { event: "*", schema: "public", table: "contractor", filter: "project=eq." + project },
-        () => {
-          fetchTable("contractor", "karo_contr_", contrMapper);
-          fetchCash();
-        }).subscribe();
+    /* ================= تۆڕی سەلامەتی =================
+       ئەگەر WebSocket بکەوێت (مۆبایل، تۆڕی لاواز)، ئەمانە
+       دەستبەجێ داتاکە دەگەڕێننەوە بۆ ڕێکخستن. */
+    const cashPoll = setInterval(() => {
+      if (navigator.onLine && document.visibilityState === "visible") fetchCash();
+    }, CASH_POLL_MS);
 
-    const invSub = supabase.channel("inv_rt_" + project + channelSuffix)
-      .on("postgres_changes", { event: "*", schema: "public", table: "invoices", filter: "project=eq." + project },
-        () => fetchTable("invoices", "karo_inv_", invMapper)).subscribe();
-
-    const personsSub = supabase.channel("persons_rt_" + project + channelSuffix)
-      .on("postgres_changes", { event: "*", schema: "public", table: "persons", filter: "project=eq." + project },
-        () => fetchPersons()).subscribe();
-
-    const cashSub = supabase.channel("cash_rt_" + project + channelSuffix)
-      .on("postgres_changes", { event: "*", schema: "public", table: "cash", filter: "project=eq." + project },
-        () => fetchCash()).subscribe();
-
-    // ============ POLLING FALLBACK ============
-    /* ⭐ کات زۆرتر — لە resource exhaustion دەپارێزێت
-       Realtime subscription یەکسەر کاردەکات کاتێک داتا گۆڕێت
-       polling تەنها بەکاردێت کاتێک subscription بزرە */
-    cashPollRef.current = setInterval(() => {
+    const fullPoll = setInterval(() => {
       if (navigator.onLine && document.visibilityState === "visible" && !reloadingRef.current) {
-        fetchCash();
+        reconcileAll(project);
+        fetchPersons();
       }
-    }, 5000);
+    }, RECONCILE_MS);
 
-    fullPollRef.current = setInterval(() => {
-      if (navigator.onLine && document.visibilityState === "visible" && !reloadingRef.current) {
-        fetchAll();
-      }
-    }, 20000);
-
-    // ============ VISIBILITY CHANGE ============
     const onVisibility = () => {
       if (document.visibilityState === "visible" && navigator.onLine && !reloadingRef.current) {
-        fetchAll();
+        flush(); flushCashQueue();
+        fetchCash();
+        reconcileAll(project);
+        fetchPersons();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
 
-    // ============ ONLINE EVENT ============
     const onOnline = () => {
       if (reloadingRef.current) return;
-      console.log("[RealtimeSync] online — fetching all");
-      fetchAll();
+      flush(); flushCashQueue();
+      fetchCash();
+      reconcileAll(project);
     };
     window.addEventListener("online", onOnline);
 
-    // ============ CLEANUP ============
     return () => {
-      if (cashPollRef.current) clearInterval(cashPollRef.current);
-      if (fullPollRef.current) clearInterval(fullPollRef.current);
+      alive = false;
+      clearInterval(cashPoll);
+      clearInterval(fullPoll);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
-      supabase.removeChannel(expSub);
-      supabase.removeChannel(concSub);
-      supabase.removeChannel(loanSub);
-      supabase.removeChannel(contrSub);
-      supabase.removeChannel(invSub);
-      supabase.removeChannel(personsSub);
-      supabase.removeChannel(cashSub);
+      if (window.__karoOnCashFromServer) delete window.__karoOnCashFromServer;
+      chans.forEach(c => { try { supabase.removeChannel(c); } catch (e) {} });
     };
   }, [project]);
 
