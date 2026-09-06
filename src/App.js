@@ -1317,7 +1317,7 @@ export default function App() {
   const cashLogRef = useRef(cashLog);
   useEffect(() => { cashLogRef.current = cashLog; }, [cashLog]);
 
-  const addCashLog = useCallback((desc, iqd, usd) => {
+  const addCashLog = useCallback((desc, iqd, usd, kind) => {
     const iqdN = Number(iqd) ? Number(iqd) : 0;
     const usdN = Number(usd) ? Number(usd) : 0;
     if (!pKey || pKey === "default") return;
@@ -1331,6 +1331,11 @@ export default function App() {
       id: genId(),
       date: today(),
       desc,
+      /* ⭐ نیشانەیەکی جێگیر و سەربەخۆ لە زمان.
+         پێشتر پەڕەی «ئاڵوگۆڕی دراو» مێژووەکەی بە گەڕان بەدوای وشەی
+         «گۆڕین»ـدا دەدۆزییەوە — کاتێک زمان دەگۆڕدرا بۆ ئینگلیزی/عەرەبی
+         ئەو وشەیە نەدەگونجا و هەموو مێژووەکە ون دەبوو. */
+      kind: kind || undefined,
       iqd: iqdN,
       usd: usdN,
       balIQD: baseIQD + iqdN,
@@ -5452,6 +5457,14 @@ function ContractorPage({ t, s, isRtl, pKey, cashIQD, setCashIQD, cashUSD, setCa
 // ==================== EXCHANGE ====================
 function ExchangePage({ t, s, isRtl, exchangeRate, setExchangeRate, cashIQD, setCashIQD, cashUSD, setCashUSD, addCashLog, isFrozen, pKey, cashLog }) {
   const [tmpRate, setTmpRate] = useState(exchangeRate);
+  /* ⭐ چاککراوە: پێشتر خانەی نرخ تەنها یەک جار لە کاتی کردنەوەی پەڕەکەدا
+     پڕ دەکرایەوە. ئەگەر لە ئامێرێکی تر نرخ بگۆڕدرایە، ئەم خانەیە نرخی
+     کۆنی هەڵدەگرت — و بە کلیککردنی «پاشەکەوت» نرخە نوێیەکە دەگەڕایەوە
+     بۆ کۆن. ئێستا خۆکارانە نوێ دەبێتەوە، مەگەر تۆ خۆت دەستکاری بکەیت. */
+  const rateDirty = useRef(false);
+  useEffect(() => {
+    if (!rateDirty.current) setTmpRate(exchangeRate);
+  }, [exchangeRate]);
   const [dir, setDir] = useState("usd_to_iqd");
   const [amt, setAmt] = useState("");
   const [alert, setAlert] = useState(null);
@@ -5459,8 +5472,19 @@ function ExchangePage({ t, s, isRtl, exchangeRate, setExchangeRate, cashIQD, set
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
 
-  // مێژووی ئاڵوگۆڕەکان — تەنها تۆمارەکانی گۆڕین
-  const convertLogs = (cashLog||[]).filter(l => l.desc && l.desc.includes("بۆ") && l.desc.includes(t.convert));
+  /* مێژووی ئاڵوگۆڕەکان.
+     ⭐ چاککراوە: پێشتر بە وشەی زمانی ئێستا دەگەڕا (t.convert). ئەگەر
+     تۆمارێک بە کوردی نووسرابا و دواتر زمان بۆ ئینگلیزی بگۆڕدرایە،
+     ئەو تۆمارە لە مێژووەکەدا ون دەبوو — وەک ئەوەی داتاکە سڕابێتەوە.
+     ئێستا: بە نیشانەی جێگیری kind دەگەڕێین، و بۆ تۆمارە کۆنەکانیش
+     بە هەر سێ زمانەکە پشکنین دەکەین. */
+  const CONVERT_WORDS = ["گۆڕین", "Convert", "تحويل"];
+  const convertLogs = (cashLog || []).filter(l => {
+    if (!l) return false;
+    if (l.kind === "convert") return true;
+    const d = String(l.desc || "");
+    return d.includes("بۆ") && CONVERT_WORDS.some(w => d.includes(w));
+  });
   const months = [...new Set(convertLogs.map(l => (l.date||"").slice(0,7)))].filter(Boolean).sort().reverse();
   const filtered = convertLogs.filter(l => {
     if (filterMonth && !(l.date||"").startsWith(filterMonth)) return false;
@@ -5489,7 +5513,7 @@ function ExchangePage({ t, s, isRtl, exchangeRate, setExchangeRate, cashIQD, set
       const convertedIQD = Math.round(a * exchangeRate);
       setCashUSD(prev => prev - a); 
       setCashIQD(prev => prev + convertedIQD); 
-      addCashLog(`${t.convert}: $${a} بۆ ${fmt(convertedIQD)} ${t.iqd}`, convertedIQD, -a);
+      addCashLog(`${t.convert}: $${a} بۆ ${fmt(convertedIQD)} ${t.iqd}`, convertedIQD, -a, "convert");
     } else {
       if (a > cashIQD) { 
         setAlert(t.noBalance); 
@@ -5498,7 +5522,7 @@ function ExchangePage({ t, s, isRtl, exchangeRate, setExchangeRate, cashIQD, set
       const convertedUSD = Math.round(a / exchangeRate);
       setCashIQD(prev => prev - a); 
       setCashUSD(prev => prev + convertedUSD); 
-      addCashLog(`${t.convert}: ${fmt(a)} ${t.iqd} بۆ $${convertedUSD}`, -a, convertedUSD);
+      addCashLog(`${t.convert}: ${fmt(a)} ${t.iqd} بۆ $${convertedUSD}`, -a, convertedUSD, "convert");
     }
     setAmt("");
   };
@@ -5513,11 +5537,12 @@ function ExchangePage({ t, s, isRtl, exchangeRate, setExchangeRate, cashIQD, set
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 12, color: s.textMuted, textAlign: "center", display: "block", marginBottom: 3 }}>1 USD =</label>
-              <input type="number" value={tmpRate} onChange={e=>setTmpRate(Number(e.target.value))} style={{ width: "100%", padding: "10px 15px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 15, direction: "ltr", textAlign: "center" }} />
+              <input type="number" value={tmpRate} onChange={e=>{ rateDirty.current = true; setTmpRate(Number(e.target.value)); }} style={{ width: "100%", padding: "10px 15px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 15, direction: "ltr", textAlign: "center" }} />
             </div>
             <button onClick={()=>{
               /* FIX (revert bug): نرخی نوێ ṛاستەوخۆ بۆ Supabase بنێرە —
                  پێشتر هیچ شتێک push ی نەدەکرد و fetchCash دەیگەṛاندەوە بۆ نرخی کۆن */
+              rateDirty.current = false;
               setExchangeRate(tmpRate);
               cashSetRate(pKey, tmpRate);
             }} style={{ padding: "10px 20px", borderRadius: 6, background: PRIMARY, color: "#fff", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>{t.saveRate}</button>

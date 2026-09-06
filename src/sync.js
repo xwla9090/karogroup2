@@ -591,7 +591,14 @@ async function sendCashDelta(project, di, du, logEntry, retry) {
 const CASH_Q_KEY = "karo_cashq_v3";
 function queueCashDelta(project, di, du, logEntry) {
   const q = arr(jget(CASH_Q_KEY, []));
-  q.push({ project, di, du, logEntry, ts: Date.now() });
+  q.push({ kind: "delta", project, di, du, logEntry, ts: Date.now() });
+  jset(CASH_Q_KEY, q);
+}
+
+/* نرخی ئاڵوگۆڕ: تەنها نوێترین بۆ هەر پرۆژەیەک دەمێنێتەوە */
+function queueCashRate(project, rate) {
+  const q = arr(jget(CASH_Q_KEY, [])).filter(x => !(x.kind === "rate" && x.project === project));
+  q.push({ kind: "rate", project, rate, ts: Date.now() });
   jset(CASH_Q_KEY, q);
 }
 export async function flushCashQueue() {
@@ -601,7 +608,9 @@ export async function flushCashQueue() {
   jset(CASH_Q_KEY, []);
   const failed = [];
   for (const item of q) {
-    const r = await sendCashDelta(item.project, item.di, item.du, item.logEntry, true);
+    const r = item.kind === "rate"
+      ? await sendCashRate(item.project, item.rate, true)
+      : await sendCashDelta(item.project, item.di, item.du, item.logEntry, true);
     if (r && r.error) failed.push(item);
   }
   if (failed.length) jset(CASH_Q_KEY, arr(jget(CASH_Q_KEY, [])).concat(failed));
@@ -652,16 +661,57 @@ export async function cashSetAbsolute(project, iqd, usd, logEntry) {
   return cashChain;
 }
 
-/** پاشەکەوتکردنی نرخی ئاڵوگۆڕ */
-export async function cashSetRate(project, rate) {
-  if (!project || project === "default") return { error: null };
-  const k = cashLSKeys(project);
-  jset(k.rate, N(rate) || 1500);
-  cashChain = cashChain.then(async () => {
-    try { await supabase.from("cash").update({ exchangerate: N(rate) || 1500 }).eq("project", project); }
-    catch (e) { console.warn("[sync] cashSetRate", e && e.message); }
-  }).catch(() => {});
+/**
+ * پاشەکەوتکردنی نرخی ئاڵوگۆڕ.
+ * ⭐ چاککراوە: پێشتر تەنها یەک UPDATE ـی سادە بوو —
+ *   • ئەگەر ڕیزی cash نەبووایە، هیچی نەدەکرد و نرخەکە تەنها لۆکاڵ دەمایەوە
+ *   • ئەگەر تۆڕ کێشەی هەبوایە، بێدەنگ لەدەست دەچوو و پاشان سێرڤەر نرخی
+ *     کۆنی دەگەڕاندەوە → «نرخی دراو دەگەڕێتەوە»
+ *   ئێستا: ڕیز دروست دەکات ئەگەر نەبوو، و لە شکستدا لە ڕیزدا دەمێنێتەوە.
+ */
+export function cashSetRate(project, rate) {
+  if (!project || project === "default") return Promise.resolve({ error: null });
+  const r = N(rate) || 1500;
+  jset(cashLSKeys(project).rate, r);
+  cashInFlight++;
+  cashChain = cashChain
+    .then(() => sendCashRate(project, r))
+    .catch(() => {})
+    .then(res => { cashInFlight--; return res; });
   return cashChain;
+}
+
+async function sendCashRate(project, r, isRetry) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    queueCashRate(project, r);
+    return { error: null, queued: true };
+  }
+  try {
+    const { data, error } = await supabase
+      .from("cash").update({ exchangerate: r }).eq("project", project).select("project");
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      /* ڕیزی cash هێشتا دروست نەکراوە — دروستی بکە */
+      const c = readLocalCash(project);
+      const log = arr(jget(cashLSKeys(project).log, []));
+      const { error: insErr } = await supabase.from("cash").insert([{
+        id: project, project, cashiqd: c.iqd, cashusd: c.usd,
+        exchangerate: r, cashlog: JSON.stringify(log)
+      }]);
+      /* ئەگەر لە هەمان کاتدا کەسێکی تر دروستی کردبێت، دیسان update بکە */
+      if (insErr) {
+        const { error: e2 } = await supabase
+          .from("cash").update({ exchangerate: r }).eq("project", project);
+        if (e2) throw e2;
+      }
+    }
+    return { error: null };
+  } catch (e) {
+    if (!isRetry) queueCashRate(project, r);
+    console.warn("[sync] cashSetRate:", e && e.message);
+    return { error: e, queued: !isRetry };
+  }
 }
 
 /* ==================================================================
