@@ -289,6 +289,9 @@ const T = {
     wkNoCashNote: "ئەم بەشە هیچ کاریگەرییەکی لەسەر قاسە نییە — تەنها نیشاندانە",
     wkPickWorker: "سەرەتا کرێکارێک هەڵبژێرە", wkDelWorker: "سڕینەوەی کرێکار",
     wkAddEntry: "تۆمارکردنی ئیشی ڕۆژانە", wkNoEntries: "هێشتا هیچ ئیشێک تۆمار نەکراوە",
+    wkFullDay: "ڕۆژێکی تەواو (٩ سەعات)", wkPartial: "ڕۆژی تەواو نییە — تەنها سەعات",
+    wkHours: "سەعات", wkWorkedHours: "کاتژمێری ئیشکراو",
+    wkNeedValue: "سەح لێبدە بۆ ڕۆژێکی تەواو، یان ژمارەی سەعات بنووسە",
     wkNoWorkers: "سەرەتا کرێکارێک زیاد بکە لە سەرەوە — ناو و نرخی ڕۆژی بنووسە",
     wkDelWorkerConfirm: "دڵنیایت؟ کرێکارەکە لە لیست لادەبرێت بەڵام تۆمارە کۆنەکانی دەمێننەوە",
     font: "فۆنت", importExcel: "هاوردە لە Excel",
@@ -394,6 +397,9 @@ const T = {
     wkNoCashNote: "This section does not affect the cash box — display only",
     wkPickWorker: "Select a worker first", wkDelWorker: "Delete Worker",
     wkAddEntry: "Record a work day", wkNoEntries: "No work recorded yet",
+    wkFullDay: "Full day (9 hours)", wkPartial: "Not a full day - hours only",
+    wkHours: "Hours", wkWorkedHours: "Hours worked",
+    wkNeedValue: "Tick for a full day, or enter the number of hours",
     wkNoWorkers: "Add a worker above first — name and day rate",
     wkDelWorkerConfirm: "Are you sure? The worker is removed from the list but past entries remain",
     font: "Font", importExcel: "Import Excel",
@@ -499,6 +505,9 @@ const T = {
     wkNoCashNote: "هذا القسم لا يؤثر على الصندوق — للعرض فقط",
     wkPickWorker: "اختر عاملاً أولاً", wkDelWorker: "حذف عامل",
     wkAddEntry: "تسجيل يوم عمل", wkNoEntries: "لم يتم تسجيل أي عمل بعد",
+    wkFullDay: "يوم كامل (٩ ساعات)", wkPartial: "ليس يوماً كاملاً — ساعات فقط",
+    wkHours: "ساعات", wkWorkedHours: "ساعات العمل",
+    wkNeedValue: "ضع علامة ليوم كامل، أو أدخل عدد الساعات",
     wkNoWorkers: "أضف عاملاً في الأعلى أولاً — الاسم وأجر اليوم",
     wkDelWorkerConfirm: "هل أنت متأكد؟ يُحذف العامل من القائمة لكن السجلات السابقة تبقى",
     font: "الخط", importExcel: "استيراد Excel",
@@ -5721,6 +5730,7 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
   const [editWorker, setEditWorker] = useState(null);
   const [wForm, setWForm] = useState({ name: "", dailyRate: "", hourlyRate: "" });
   const [confirmDelWorker, setConfirmDelWorker] = useState(null);
+  const [workersModal, setWorkersModal] = useState(false);
 
   /* ---------- فۆڕمی تۆماری ڕۆژانە ---------- */
   const blankForm = () => ({
@@ -5820,6 +5830,7 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
     }));
   };
 
+  const isFullDay = Number(form.days || 0) >= 1;
   const previewAmount = wkAmount(form.days, form.overtimeHours, form.dailyRate, form.hourlyRate);
 
   const resetForm = () => { setForm(blankForm()); setEditItem(null); };
@@ -5831,7 +5842,7 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
 
     const d = Number(form.days || 0);
     const ot = Number(form.overtimeHours || 0);
-    if (d <= 0 && ot <= 0) { setAlert(t.wkFullDayHint); return; }
+    if (d <= 0 && ot <= 0) { setAlert(t.wkNeedValue); return; }
 
     const dRate = Number(form.dailyRate || 0);
     const hRate = Number(form.hourlyRate || 0);
@@ -5890,11 +5901,11 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
 
   /* ================= دەرهێنان ================= */
   const doExport = (type, size) => {
-    const hdrs = [t.date, t.wkWorker, t.wkDays, t.wkOvertime, t.wkDailyRate, t.wkHourlyRate, t.wkAmount, t.note];
+    const hdrs = [t.date, t.wkWorker, t.wkDays, t.wkHours, t.wkDailyRate, t.wkHourlyRate, t.wkAmount, t.note];
     const rows = filtered.map(i => [
       fmtDate(i.date || ""),
       i.workerName || "",
-      Number(i.days || 0),
+      Number(i.days || 0) >= 1 ? "1" : "0",
       Number(i.overtimeHours || 0),
       Math.round(Number(i.dailyRate || 0)),
       Math.round(Number(i.hourlyRate || 0)),
@@ -5927,11 +5938,28 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
       </div>
       <div>
         <label style={labelStyle}>{t.wkDays}</label>
-        <input type="number" step="0.25" min="0" value={form.days}
-          onChange={e => setForm({ ...form, days: e.target.value })} style={numStyle} />
+        {/* ⭐ سەح = ڕۆژێکی تەواو (٩ سەعات) → نرخی ڕۆژ دەژمێردرێت
+            زەرب = ڕۆژی تەواو نەبووە      → تەنها سەعاتەکان دەژمێردرێن */}
+        <div style={{ display: "flex", gap: 6 }}>
+          <button type="button" onClick={() => setForm({ ...form, days: 1 })}
+            title={t.wkFullDay}
+            style={{ flex: 1, padding: "7px 0", borderRadius: 6, cursor: "pointer", fontSize: 16, fontWeight: 800,
+              border: isFullDay ? "2px solid #059669" : `1px solid ${s.border}`,
+              background: isFullDay ? "#D1FAE5" : s.bgCard2,
+              color: isFullDay ? "#059669" : s.textMuted }}>✔</button>
+          <button type="button" onClick={() => setForm({ ...form, days: 0 })}
+            title={t.wkPartial}
+            style={{ flex: 1, padding: "7px 0", borderRadius: 6, cursor: "pointer", fontSize: 16, fontWeight: 800,
+              border: !isFullDay ? "2px solid #EF4444" : `1px solid ${s.border}`,
+              background: !isFullDay ? "#FEE2E2" : s.bgCard2,
+              color: !isFullDay ? "#EF4444" : s.textMuted }}>✕</button>
+        </div>
+        <div style={{ fontSize: 10, color: s.textMuted, textAlign: "center", marginTop: 3 }}>
+          {isFullDay ? t.wkFullDay : t.wkPartial}
+        </div>
       </div>
       <div>
-        <label style={labelStyle}>{t.wkOvertime}</label>
+        <label style={labelStyle}>{isFullDay ? t.wkOvertime : t.wkWorkedHours}</label>
         <input type="number" step="0.5" min="0" value={form.overtimeHours}
           onChange={e => setForm({ ...form, overtimeHours: e.target.value })} style={numStyle} />
       </div>
@@ -5969,6 +5997,7 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: PRIMARY }}>{t.sidebar.workers}</h1>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => setWorkersModal(true)} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${PRIMARY}`, background: `${PRIMARY}12`, color: PRIMARY, cursor: "pointer", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>👥 {t.wkWorkersList} ({workers.length})</button>
             <button onClick={() => setSizeModal({ type: "pdf" })} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> PDF</button>
             <button onClick={() => setSizeModal({ type: "excel" })} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> {t.saveExcel}</button>
             {!isFrozen && (
@@ -5982,55 +6011,6 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
         <div style={{ fontSize: 11, color: s.textMuted, textAlign: "center", marginBottom: 10 }}>
           ℹ️ {t.wkNoCashNote}
         </div>
-
-        {/* ======== زیادکردنی کرێکار ======== */}
-        {!isFrozen && (
-          <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", justifyContent: "center", alignItems: "flex-end" }}>
-            <div style={{ minWidth: 150, flex: 1 }}>
-              <label style={labelStyle}>{t.wkWorker}</label>
-              <input value={wName} onChange={e => setWName(e.target.value)} placeholder={t.wkAddWorker} style={inputStyle} />
-            </div>
-            <div style={{ minWidth: 120 }}>
-              <label style={labelStyle}>{t.wkDailyRate}</label>
-              <input type="number" value={wDaily}
-                onChange={e => {
-                  const v = e.target.value;
-                  setWDaily(v);
-                  const n = Number(v || 0);
-                  setWHourly(n > 0 ? String(Math.round(n / WK_HOURS_PER_DAY)) : "");
-                }}
-                onKeyDown={e => e.key === "Enter" && handleAddWorker()} style={numStyle} />
-            </div>
-            <div style={{ minWidth: 120 }}>
-              <label style={labelStyle}>{t.wkHourlyRate}</label>
-              <input type="number" value={wHourly} onChange={e => setWHourly(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleAddWorker()} style={numStyle} />
-            </div>
-            <button onClick={handleAddWorker} style={{ padding: "8px 18px", borderRadius: 6, border: "none", background: PRIMARY, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-              <I.Plus /> {t.wkAddWorker}
-            </button>
-          </div>
-        )}
-
-        {/* ======== لیستی کرێکارەکان ======== */}
-        {workers.length > 0 && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
-            {workers.map(w => (
-              <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 6, background: s.bgCard2, border: `1px solid ${s.border}`, borderRadius: 20, padding: "5px 12px", fontSize: 12 }}>
-                <strong style={{ color: s.text }}>{w.name}</strong>
-                <span style={{ color: s.textMuted, direction: "ltr", fontSize: 11 }}>
-                  {fmt(w.dailyRate)} / {t.wkDays} · {fmt(w.hourlyRate)} / h
-                </span>
-                {!isFrozen && (
-                  <>
-                    <button onClick={() => openEditWorker(w)} title={t.wkEditWorker} style={{ background: "none", border: "none", color: PRIMARY, cursor: "pointer", padding: 0, display: "flex" }}><I.Edit /></button>
-                    <button onClick={() => setConfirmDelWorker(w.id)} title={t.wkDelWorker} style={{ background: "none", border: "none", color: s.danger, cursor: "pointer", padding: 0, display: "flex" }}><I.Trash /></button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* ======== فلتەر ======== */}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
@@ -6096,7 +6076,7 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
                 <TH isRtl={isRtl}>{t.date}</TH>
                 <TH isRtl={isRtl}>{t.wkWorker}</TH>
                 <TH isRtl={isRtl}>{t.wkDays}</TH>
-                <TH isRtl={isRtl}>{t.wkOvertime}</TH>
+                <TH isRtl={isRtl}>{t.wkHours}</TH>
                 <TH isRtl={isRtl}>{t.wkDailyRate}</TH>
                 <TH isRtl={isRtl}>{t.wkHourlyRate}</TH>
                 <TH isRtl={isRtl}>{t.wkAmount}</TH>
@@ -6110,7 +6090,11 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
                 <tr key={item.id} style={{ background: item.marked ? `${PRIMARY}06` : "transparent", textAlign: "center" }}>
                   <TD s={s} style={{ direction: "ltr", minWidth: 95 }}>{fmtDate(item.date)}</TD>
                   <TD s={s} style={{ fontWeight: 600, minWidth: 100 }}>{item.workerName || "-"}</TD>
-                  <TD s={s} style={{ direction: "ltr", minWidth: 55 }}>{Number(item.days || 0) || "-"}</TD>
+                  <TD s={s} style={{ minWidth: 55 }}>
+                    {Number(item.days || 0) >= 1
+                      ? <span title={t.wkFullDay} style={{ color: "#059669", fontWeight: 800, fontSize: 15 }}>✔</span>
+                      : <span title={t.wkPartial} style={{ color: "#EF4444", fontWeight: 800, fontSize: 15 }}>✕</span>}
+                  </TD>
                   <TD s={s} style={{ direction: "ltr", minWidth: 60 }}>{Number(item.overtimeHours || 0) || "-"}</TD>
                   <TD s={s} style={{ direction: "ltr", minWidth: 85, color: s.textMuted }}>{fmt(item.dailyRate)}</TD>
                   <TD s={s} style={{ direction: "ltr", minWidth: 80, color: s.textMuted }}>{fmt(item.hourlyRate)}</TD>
@@ -6160,6 +6144,81 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
             {entryFields}
           </div>
         </EditModal>
+      )}
+
+      {/* ======== لیستی کرێکارەکان (مۆداڵ) ======== */}
+      {workersModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 99998, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+             onClick={() => setWorkersModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: s.bgCard, borderRadius: 16, padding: 24, maxWidth: 620, width: "100%", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: PRIMARY }}>👥 {t.wkWorkersList}</h3>
+              <button onClick={() => setWorkersModal(false)} style={{ background: "none", border: "none", fontSize: 20, color: s.textMuted, cursor: "pointer" }}>✕</button>
+            </div>
+
+            {!isFrozen && (
+              <div style={{ background: s.bgCard2, borderRadius: 10, padding: 14, marginBottom: 18, border: `1px solid ${s.border}` }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: PRIMARY, marginBottom: 10, textAlign: "center" }}>{t.wkAddWorker}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                  <div>
+                    <label style={labelStyle}>{t.wkWorker}</label>
+                    <input value={wName} onChange={e => setWName(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t.wkDailyRate}</label>
+                    <input type="number" value={wDaily}
+                      onChange={e => {
+                        const v = e.target.value; setWDaily(v);
+                        const n = Number(v || 0);
+                        setWHourly(n > 0 ? String(Math.round(n / WK_HOURS_PER_DAY)) : "");
+                      }}
+                      onKeyDown={e => e.key === "Enter" && handleAddWorker()} style={numStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{t.wkHourlyRate}</label>
+                    <input type="number" value={wHourly} onChange={e => setWHourly(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleAddWorker()} style={numStyle} />
+                  </div>
+                </div>
+                <button onClick={handleAddWorker} style={{ width: "100%", padding: "9px 0", borderRadius: 6, border: "none", background: PRIMARY, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                  <I.Plus /> {t.wkAddWorker}
+                </button>
+              </div>
+            )}
+
+            {workers.length === 0 ? (
+              <div style={{ padding: 30, textAlign: "center", color: s.textMuted, fontSize: 13 }}>{t.noData}</div>
+            ) : (
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <TH isRtl={isRtl}>{t.wkWorker}</TH>
+                    <TH isRtl={isRtl}>{t.wkDailyRate}</TH>
+                    <TH isRtl={isRtl}>{t.wkHourlyRate}</TH>
+                    <TH isRtl={isRtl}></TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workers.map(w => (
+                    <tr key={w.id} style={{ textAlign: "center" }}>
+                      <TD s={s} style={{ fontWeight: 700 }}>{w.name}</TD>
+                      <TD s={s} style={{ direction: "ltr" }}>{fmt(w.dailyRate)}</TD>
+                      <TD s={s} style={{ direction: "ltr" }}>{fmt(w.hourlyRate)}</TD>
+                      <TD s={s} style={{ minWidth: 60 }}>
+                        {!isFrozen && (
+                          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                            <button onClick={() => openEditWorker(w)} title={t.wkEditWorker} style={{ background: "none", border: "none", color: PRIMARY, cursor: "pointer", padding: 2 }}><I.Edit /></button>
+                            <button onClick={() => setConfirmDelWorker(w.id)} title={t.wkDelWorker} style={{ background: "none", border: "none", color: s.danger, cursor: "pointer", padding: 2 }}><I.Trash /></button>
+                          </div>
+                        )}
+                      </TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ======== دەستکاری نرخی کرێکار ======== */}
