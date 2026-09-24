@@ -288,6 +288,8 @@ const T = {
     wkTotalDays: "کۆی ڕۆژ", wkTotalOvertime: "کۆی ئیزافی", wkTotalAmount: "کۆی پارە",
     wkNoCashNote: "ئەم بەشە هیچ کاریگەرییەکی لەسەر قاسە نییە — تەنها نیشاندانە",
     wkPickWorker: "سەرەتا کرێکارێک هەڵبژێرە", wkDelWorker: "سڕینەوەی کرێکار",
+    wkAddEntry: "تۆمارکردنی ئیشی ڕۆژانە", wkNoEntries: "هێشتا هیچ ئیشێک تۆمار نەکراوە",
+    wkNoWorkers: "سەرەتا کرێکارێک زیاد بکە لە سەرەوە — ناو و نرخی ڕۆژی بنووسە",
     wkDelWorkerConfirm: "دڵنیایت؟ کرێکارەکە لە لیست لادەبرێت بەڵام تۆمارە کۆنەکانی دەمێننەوە",
     font: "فۆنت", importExcel: "هاوردە لە Excel",
     from: "لە", to: "تا", profitLoss: "قازانج/زەرەر", income: "داهات", expense: "خەرجی", profit: "قازانج", loss: "زەرەر",
@@ -391,6 +393,8 @@ const T = {
     wkTotalDays: "Total Days", wkTotalOvertime: "Total Overtime", wkTotalAmount: "Total Amount",
     wkNoCashNote: "This section does not affect the cash box — display only",
     wkPickWorker: "Select a worker first", wkDelWorker: "Delete Worker",
+    wkAddEntry: "Record a work day", wkNoEntries: "No work recorded yet",
+    wkNoWorkers: "Add a worker above first — name and day rate",
     wkDelWorkerConfirm: "Are you sure? The worker is removed from the list but past entries remain",
     font: "Font", importExcel: "Import Excel",
     from: "From", to: "To", profitLoss: "Profit/Loss", income: "Income", expense: "Expense", profit: "Profit", loss: "Loss",
@@ -494,6 +498,8 @@ const T = {
     wkTotalDays: "مجموع الأيام", wkTotalOvertime: "مجموع الإضافي", wkTotalAmount: "المبلغ الإجمالي",
     wkNoCashNote: "هذا القسم لا يؤثر على الصندوق — للعرض فقط",
     wkPickWorker: "اختر عاملاً أولاً", wkDelWorker: "حذف عامل",
+    wkAddEntry: "تسجيل يوم عمل", wkNoEntries: "لم يتم تسجيل أي عمل بعد",
+    wkNoWorkers: "أضف عاملاً في الأعلى أولاً — الاسم وأجر اليوم",
     wkDelWorkerConfirm: "هل أنت متأكد؟ يُحذف العامل من القائمة لكن السجلات السابقة تبقى",
     font: "الخط", importExcel: "استيراد Excel",
     from: "من", to: "إلى", profitLoss: "ربح/خسارة", income: "الدخل", expense: "المصروف", profit: "ربح", loss: "خسارة",
@@ -5966,7 +5972,9 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
             <button onClick={() => setSizeModal({ type: "pdf" })} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> PDF</button>
             <button onClick={() => setSizeModal({ type: "excel" })} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> {t.saveExcel}</button>
             {!isFrozen && (
-              <button onClick={() => { setShowForm(!showForm); resetForm(); }} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: PRIMARY, color: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><I.Plus /> {t.add}</button>
+              <button onClick={() => { setShowForm(!showForm); resetForm(); }} style={{ padding: "7px 16px", borderRadius: 6, border: "none", background: showForm ? "#EF4444" : PRIMARY, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
+                {showForm ? <>✕ {t.cancel}</> : <><I.Plus /> {t.wkAddEntry}</>}
+              </button>
             )}
           </div>
         </div>
@@ -6067,7 +6075,7 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
       {/* ======== فۆڕمی زیادکردن ======== */}
       {!isFrozen && showForm && (
         <div style={{ background: s.bgCard, border: `1px solid ${PRIMARY}40`, borderRadius: 10, padding: 20, marginBottom: 15 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: PRIMARY, textAlign: "center" }}>{t.add}</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: PRIMARY, textAlign: "center" }}>{t.wkAddEntry}</h3>
           <div style={{ fontSize: 11, color: s.textMuted, textAlign: "center", marginBottom: 15 }}>{t.wkFullDayHint}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 12 }}>
             {entryFields}
@@ -6125,7 +6133,22 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
               ))}
             </tbody>
           </table>
-          {filtered.length === 0 && <div style={{ padding: 40, textAlign: "center", color: s.textMuted, fontSize: 13 }}>{t.noData}</div>}
+          {filtered.length === 0 && (
+            <div style={{ padding: "50px 20px", textAlign: "center", color: s.textMuted, fontSize: 13 }}>
+              <div style={{ fontSize: 40, marginBottom: 10, opacity: 0.4 }}>👨‍🔧</div>
+              <div style={{ marginBottom: 6, fontWeight: 600 }}>
+                {entries.length === 0 ? t.wkNoEntries : t.noData}
+              </div>
+              {workers.length === 0 ? (
+                <div style={{ fontSize: 12 }}>{t.wkNoWorkers}</div>
+              ) : (!isFrozen && entries.length === 0 && (
+                <button onClick={() => { resetForm(); setShowForm(true); }}
+                  style={{ marginTop: 14, padding: "10px 24px", borderRadius: 8, border: "none", background: PRIMARY, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <I.Plus /> {t.wkAddEntry}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
