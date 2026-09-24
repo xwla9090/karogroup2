@@ -256,6 +256,7 @@ const T = {
       expenses: "خەرجی (مەسارف)", 
       formatData: "سڕینەوەی هەموو داتاکان",
       users: "بەکارهێنەران",
+      workers: "حیساباتی کرێکار",
       allProjects: "هەموو پرۆژەکان",
       messages: "نامەکان"
     },
@@ -278,6 +279,16 @@ const T = {
     reportsTitle: "ڕاپۆرتی گشتی", noData: "هیچ داتایەک نییە",
     downloadBackup: "داونلۆدی پاشەکەوت", uploadBackup: "بارکردنی پاشەکەوت", backupSuccess: "سەرکەوتوو بوو",
     ok: "باشە", addPerson: "زیادکردنی کەس", persons: "کەسەکان", allPersons: "هەموو کەسەکان",
+    /* ===== حیساباتی کرێکار ===== */
+    wkWorker: "کرێکار", wkAddWorker: "زیادکردنی کرێکار", wkAllWorkers: "هەموو کرێکارەکان",
+    wkDays: "ڕۆژ", wkOvertime: "ئیزافی (سەعات)", wkDailyRate: "نرخی ڕۆژ", wkHourlyRate: "نرخی سەعات",
+    wkAmount: "بڕی پارە", wkEditWorker: "دەستکاری نرخی کرێکار", wkWorkersList: "لیستی کرێکارەکان",
+    wkFullDayHint: "٩ سەعات = ١ ڕۆژی تەواو. بۆ نیو ڕۆژ 0.5 بنووسە",
+    wkRateNote: "گۆڕینی نرخ تەنها کاریگەری لەسەر تۆمارە نوێیەکان دەبێت — تۆمارە کۆنەکان بە نرخی خۆیان دەمێننەوە",
+    wkTotalDays: "کۆی ڕۆژ", wkTotalOvertime: "کۆی ئیزافی", wkTotalAmount: "کۆی پارە",
+    wkNoCashNote: "ئەم بەشە هیچ کاریگەرییەکی لەسەر قاسە نییە — تەنها نیشاندانە",
+    wkPickWorker: "سەرەتا کرێکارێک هەڵبژێرە", wkDelWorker: "سڕینەوەی کرێکار",
+    wkDelWorkerConfirm: "دڵنیایت؟ کرێکارەکە لە لیست لادەبرێت بەڵام تۆمارە کۆنەکانی دەمێننەوە",
     font: "فۆنت", importExcel: "هاوردە لە Excel",
     from: "لە", to: "تا", profitLoss: "قازانج/زەرەر", income: "داهات", expense: "خەرجی", profit: "قازانج", loss: "زەرەر",
     formatConfirm: "بۆ سڕینەوەی هەموو داتاکان، تکایە ناوی بەکارهێنەر و وشەی نهێنی ئەدمین بنووسە",
@@ -348,6 +359,7 @@ const T = {
       expenses: "Expenses", 
       formatData: "Format All Data",
       users: "Users",
+      workers: "Worker Accounts",
       allProjects: "All Projects",
       messages: "Messages"
     },
@@ -370,6 +382,16 @@ const T = {
     reportsTitle: "Reports", noData: "No data",
     downloadBackup: "Download Backup", uploadBackup: "Upload Backup", backupSuccess: "Success",
     ok: "OK", addPerson: "Add Person", persons: "Persons", allPersons: "All Persons",
+    /* ===== Worker accounts ===== */
+    wkWorker: "Worker", wkAddWorker: "Add Worker", wkAllWorkers: "All Workers",
+    wkDays: "Days", wkOvertime: "Overtime (h)", wkDailyRate: "Day Rate", wkHourlyRate: "Hour Rate",
+    wkAmount: "Amount", wkEditWorker: "Edit Worker Rate", wkWorkersList: "Workers",
+    wkFullDayHint: "9 hours = 1 full day. Use 0.5 for half a day",
+    wkRateNote: "Changing the rate only affects new entries — existing entries keep their own rate",
+    wkTotalDays: "Total Days", wkTotalOvertime: "Total Overtime", wkTotalAmount: "Total Amount",
+    wkNoCashNote: "This section does not affect the cash box — display only",
+    wkPickWorker: "Select a worker first", wkDelWorker: "Delete Worker",
+    wkDelWorkerConfirm: "Are you sure? The worker is removed from the list but past entries remain",
     font: "Font", importExcel: "Import Excel",
     from: "From", to: "To", profitLoss: "Profit/Loss", income: "Income", expense: "Expense", profit: "Profit", loss: "Loss",
     formatConfirm: "To format all data, enter admin username and password",
@@ -440,6 +462,7 @@ const T = {
       expenses: "المصاريف", 
       formatData: "مسح جميع البيانات",
       users: "المستخدمين",
+      workers: "حسابات العمال",
       allProjects: "جميع المشاريع",
       messages: "الرسائل"
     },
@@ -462,6 +485,16 @@ const T = {
     reportsTitle: "التقارير", noData: "لا توجد بيانات",
     downloadBackup: "تحميل النسخة", uploadBackup: "استيراد النسخة", backupSuccess: "تم بنجاح",
     ok: "حسناً", addPerson: "إضافة شخص", persons: "الأشخاص", allPersons: "جميع الأشخاص",
+    /* ===== حسابات العمال ===== */
+    wkWorker: "عامل", wkAddWorker: "إضافة عامل", wkAllWorkers: "جميع العمال",
+    wkDays: "أيام", wkOvertime: "إضافي (ساعة)", wkDailyRate: "أجر اليوم", wkHourlyRate: "أجر الساعة",
+    wkAmount: "المبلغ", wkEditWorker: "تعديل أجر العامل", wkWorkersList: "العمال",
+    wkFullDayHint: "٩ ساعات = يوم كامل. اكتب 0.5 لنصف يوم",
+    wkRateNote: "تغيير الأجر يؤثر على السجلات الجديدة فقط — السجلات السابقة تحتفظ بأجرها",
+    wkTotalDays: "مجموع الأيام", wkTotalOvertime: "مجموع الإضافي", wkTotalAmount: "المبلغ الإجمالي",
+    wkNoCashNote: "هذا القسم لا يؤثر على الصندوق — للعرض فقط",
+    wkPickWorker: "اختر عاملاً أولاً", wkDelWorker: "حذف عامل",
+    wkDelWorkerConfirm: "هل أنت متأكد؟ يُحذف العامل من القائمة لكن السجلات السابقة تبقى",
     font: "الخط", importExcel: "استيراد Excel",
     from: "من", to: "إلى", profitLoss: "ربح/خسارة", income: "الدخل", expense: "المصروف", profit: "ربح", loss: "خسارة",
     formatConfirm: "لمسح جميع البيانات، أدخل اسم المستخدم وكلمة المرور للمدير",
@@ -1932,6 +1965,7 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
     { id: "invoice", label: t.sidebar.invoice, icon: "📄" },
     { id: "backup", label: t.sidebar.backup, icon: "💾" },
     { id: "history", label: t.sidebar.history, icon: <I.Clock /> },
+    { id: "workers", label: t.sidebar.workers, icon: "👨‍🔧" },
     { id: "monthly", label: t.sidebar.monthlyReport, icon: "📊" },
   ];
 
@@ -2301,6 +2335,7 @@ function Dashboard({ t, s, isRtl, dark, lang, fontFamily, pKey, user, dashPage, 
           {dashPage === "invoice" && <InvoicePage {...shared} />}
           {dashPage === "backup" && <BackupPage {...shared} />}
           {dashPage === "history" && <HistoryPage {...shared} />}
+          {dashPage === "workers" && <WorkersPage {...shared} />}
           {dashPage === "monthly" && <MonthlyPage {...shared} />}
           {dashPage === "cash" && <CashPage {...shared} user={user} />}
           
@@ -5623,6 +5658,514 @@ function ExchangePage({ t, s, isRtl, exchangeRate, setExchangeRate, cashIQD, set
       </div>
 
       {alert && <AlertModal message={alert} onOk={()=>setAlert(null)} s={s} />}
+    </div>
+  );
+}
+
+// ==================== حیساباتی کرێکار (WORKER ACCOUNTS) ====================
+/* ⚠️ ئەم بەشە هیچ کاریگەرییەکی لەسەر قاسە نییە — تەنها تۆمار و نیشاندانە.
+
+   بنەمای نرخ:
+     • ٩ سەعات = ١ ڕۆژی تەواو
+     • هەر تۆمارێک نرخی ڕۆژ و سەعاتی ئەو کاتە لەگەڵ خۆیدا هەڵدەگرێت
+       (snapshot). بۆیە گۆڕینی نرخی کرێکارێک تەنها کاریگەری لەسەر
+       تۆمارە نوێیەکان دەبێت — کۆنەکان بە نرخی خۆیان دەمێننەوە. */
+const WK_HOURS_PER_DAY = 9;
+
+const wkAmount = (days, ot, dRate, hRate) =>
+  Math.round(Number(days || 0) * Number(dRate || 0) + Number(ot || 0) * Number(hRate || 0));
+
+const wkToRow = (d, project) => ({
+  id: d.id, project,
+  workerid: String(d.workerId || ""), workername: String(d.workerName || ""),
+  date: String(d.date || ""), days: Number(d.days || 0),
+  overtimehours: Number(d.overtimeHours || 0),
+  dailyrate: Number(d.dailyRate || 0), hourlyrate: Number(d.hourlyRate || 0),
+  amount: Number(d.amount || 0), note: String(d.note || ""), marked: !!d.marked
+});
+
+const wkWorkerToRow = (w, project) => ({
+  id: w.id, project, name: String(w.name || ""),
+  dailyrate: Number(w.dailyRate || 0), hourlyrate: Number(w.hourlyRate || 0),
+  note: String(w.note || ""), active: w.active !== false
+});
+
+function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
+  const WKEY = `karo_workers_${pKey}`;
+  const DKEY = `karo_wdays_${pKey}`;
+
+  const [workers, setWorkers] = useState(getLS(WKEY, []));
+  const [entries, setEntries] = useState(getLS(DKEY, []));
+
+  useEffect(() => { setLS(WKEY, workers); }, [workers, WKEY]);
+  useEffect(() => { setLS(DKEY, entries); }, [entries, DKEY]);
+
+  useEffect(() => {
+    const handler = () => { setWorkers(getLS(WKEY, [])); setEntries(getLS(DKEY, [])); };
+    window.addEventListener("karoDataUpdate", handler);
+    return () => window.removeEventListener("karoDataUpdate", handler);
+  }, [WKEY, DKEY]);
+
+  /* ---------- فۆڕمی زیادکردنی کرێکار ---------- */
+  const [wName, setWName] = useState("");
+  const [wDaily, setWDaily] = useState("");
+  const [wHourly, setWHourly] = useState("");
+
+  /* ---------- دەستکاری کرێکار ---------- */
+  const [editWorker, setEditWorker] = useState(null);
+  const [wForm, setWForm] = useState({ name: "", dailyRate: "", hourlyRate: "" });
+  const [confirmDelWorker, setConfirmDelWorker] = useState(null);
+
+  /* ---------- فۆڕمی تۆماری ڕۆژانە ---------- */
+  const blankForm = () => ({
+    date: today(), workerId: "", days: 1, overtimeHours: "",
+    dailyRate: "", hourlyRate: "", note: ""
+  });
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(blankForm());
+  const [editItem, setEditItem] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  /* ---------- فلتەر ---------- */
+  const [filterWorker, setFilterWorker] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+  const [search, setSearch] = useState("");
+  const [showMarkedOnly, setShowMarkedOnly] = useState(false);
+
+  const [alert, setAlert] = useState(null);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [sizeModal, setSizeModal] = useState(null);
+
+  const months = [...new Set(entries.map(i => (i.date || "").slice(0, 7)))].filter(Boolean).sort().reverse();
+
+  const filtered = entries.filter(i => {
+    if (filterWorker && String(i.workerId) !== String(filterWorker)) return false;
+    if (search && !Object.values(i).some(v => String(v || "").toLowerCase().includes(search.toLowerCase()))) return false;
+    if (filterMonth && !String(i.date || "").startsWith(filterMonth)) return false;
+    if (filterFrom && i.date && i.date < filterFrom) return false;
+    if (filterTo && i.date && i.date > filterTo) return false;
+    if (showMarkedOnly && !i.marked) return false;
+    return true;
+  }).sort((a, b) => {
+    const da = String(a.date || ""), db = String(b.date || "");
+    if (da !== db) return db.localeCompare(da);
+    return String(b.id || "").localeCompare(String(a.id || ""));
+  });
+
+  const totalDays = filtered.reduce((a, b) => a + Number(b.days || 0), 0);
+  const totalOT = filtered.reduce((a, b) => a + Number(b.overtimeHours || 0), 0);
+  const totalAmt = filtered.reduce((a, b) => a + Number(b.amount || 0), 0);
+
+  /* ================= کرێکارەکان ================= */
+  const handleAddWorker = async () => {
+    if (isFrozen) { setAlert(t.frozen); return; }
+    const name = wName.trim();
+    if (!name) return;
+    const daily = Number(wDaily || 0);
+    if (daily <= 0) { setAlert(t.wkDailyRate); return; }
+    if (workers.some(w => String(w.name).trim() === name)) { setAlert(name + " ✕"); return; }
+    const hourly = Number(wHourly || 0) || Math.round(daily / WK_HOURS_PER_DAY);
+    const w = { id: genId(), name, dailyRate: daily, hourlyRate: hourly, note: "", active: true };
+    setWorkers(prev => [...prev.filter(x => x.id !== w.id), w]);
+    setWName(""); setWDaily(""); setWHourly("");
+    try { await karoDB.from("workers").upsert([wkWorkerToRow(w, pKey)]); }
+    catch (e) { console.error("[workers add]", e); }
+  };
+
+  const openEditWorker = (w) => {
+    if (isFrozen) { setAlert(t.frozen); return; }
+    setEditWorker(w);
+    setWForm({ name: w.name, dailyRate: w.dailyRate, hourlyRate: w.hourlyRate });
+  };
+
+  const saveEditWorker = async () => {
+    if (!editWorker) return;
+    const daily = Number(wForm.dailyRate || 0);
+    const hourly = Number(wForm.hourlyRate || 0) || Math.round(daily / WK_HOURS_PER_DAY);
+    const upd = {
+      ...editWorker,
+      name: String(wForm.name || "").trim() || editWorker.name,
+      dailyRate: daily, hourlyRate: hourly
+    };
+    /* ⭐ تۆمارە کۆنەکان دەستکاری ناکرێن — نرخی خۆیان هەڵدەگرن */
+    setWorkers(prev => prev.map(w => w.id === upd.id ? upd : w));
+    setEditWorker(null);
+    try { await karoDB.from("workers").upsert([wkWorkerToRow(upd, pKey)]); }
+    catch (e) { console.error("[workers edit]", e); }
+  };
+
+  const doDeleteWorker = async (id) => {
+    setWorkers(prev => prev.filter(w => w.id !== id));
+    if (String(filterWorker) === String(id)) setFilterWorker("");
+    setConfirmDelWorker(null);
+    try { await karoDB.from("workers").delete().eq("id", id); }
+    catch (e) { console.error("[workers delete]", e); }
+  };
+
+  /* ================= تۆماری ڕۆژانە ================= */
+  const pickWorker = (id) => {
+    const w = workers.find(x => String(x.id) === String(id));
+    setForm(f => ({
+      ...f, workerId: id,
+      dailyRate: w ? w.dailyRate : f.dailyRate,
+      hourlyRate: w ? w.hourlyRate : f.hourlyRate
+    }));
+  };
+
+  const previewAmount = wkAmount(form.days, form.overtimeHours, form.dailyRate, form.hourlyRate);
+
+  const resetForm = () => { setForm(blankForm()); setEditItem(null); };
+
+  const handleSave = async () => {
+    if (isFrozen) { setAlert(t.frozen); return; }
+    const w = workers.find(x => String(x.id) === String(form.workerId));
+    if (!w && !editItem) { setAlert(t.wkPickWorker); return; }
+
+    const d = Number(form.days || 0);
+    const ot = Number(form.overtimeHours || 0);
+    if (d <= 0 && ot <= 0) { setAlert(t.wkFullDayHint); return; }
+
+    const dRate = Number(form.dailyRate || 0);
+    const hRate = Number(form.hourlyRate || 0);
+
+    const item = {
+      id: editItem ? editItem.id : genId(),
+      workerId: String(form.workerId || (editItem ? editItem.workerId : "")),
+      workerName: w ? w.name : (editItem ? editItem.workerName : ""),
+      date: form.date,
+      days: d,
+      overtimeHours: ot,
+      dailyRate: dRate,
+      hourlyRate: hRate,
+      amount: wkAmount(d, ot, dRate, hRate),
+      note: String(form.note || ""),
+      marked: editItem ? !!editItem.marked : false
+    };
+
+    setEntries(prev => editItem
+      ? prev.map(x => x.id === item.id ? item : x)
+      : [item, ...prev.filter(x => x.id !== item.id)]);
+
+    setEditModalOpen(false);
+    setShowForm(false);
+    resetForm();
+    try { await karoDB.from("worker_days").upsert([wkToRow(item, pKey)]); }
+    catch (e) { console.error("[worker_days save]", e); }
+  };
+
+  const handleEdit = (item) => {
+    if (isFrozen) { setAlert(t.frozen); return; }
+    setForm({
+      date: item.date, workerId: item.workerId, days: item.days,
+      overtimeHours: item.overtimeHours, dailyRate: item.dailyRate,
+      hourlyRate: item.hourlyRate, note: item.note || ""
+    });
+    setEditItem(item);
+    setEditModalOpen(true);
+  };
+
+  const doDelete = async (id) => {
+    if (isFrozen) { setAlert(t.frozen); return; }
+    setEntries(prev => prev.filter(i => i.id !== id));
+    setConfirmDel(null);
+    try { await karoDB.from("worker_days").delete().eq("id", id); }
+    catch (e) { console.error("[worker_days delete]", e); }
+  };
+
+  const toggleMark = async (id) => {
+    const it = entries.find(i => i.id === id);
+    const newMarked = it ? !it.marked : true;
+    setEntries(prev => prev.map(i => i.id === id ? { ...i, marked: newMarked } : i));
+    try { await karoDB.from("worker_days").update({ marked: newMarked }).eq("id", id); }
+    catch (e) { console.error("[worker_days mark]", e); }
+  };
+
+  /* ================= دەرهێنان ================= */
+  const doExport = (type, size) => {
+    const hdrs = [t.date, t.wkWorker, t.wkDays, t.wkOvertime, t.wkDailyRate, t.wkHourlyRate, t.wkAmount, t.note];
+    const rows = filtered.map(i => [
+      fmtDate(i.date || ""),
+      i.workerName || "",
+      Number(i.days || 0),
+      Number(i.overtimeHours || 0),
+      Math.round(Number(i.dailyRate || 0)),
+      Math.round(Number(i.hourlyRate || 0)),
+      Math.round(Number(i.amount || 0)),
+      i.note || ""
+    ]);
+    const tr = [t.total, "", totalDays, totalOT, "", "", Math.round(totalAmt), ""];
+    if (type === "pdf") doPrint({ title: t.sidebar.workers, headers: hdrs, rows, totalRow: tr, size, isRtl });
+    else doExcel({ title: "workers", headers: hdrs, rows, totalRow: tr });
+    setSizeModal(null);
+  };
+
+  const inputStyle = { width: "100%", padding: "8px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 13, textAlign: "center" };
+  const numStyle = { ...inputStyle, direction: "ltr" };
+  const labelStyle = { fontSize: 11, color: s.textMuted, fontWeight: 600, textAlign: "center", display: "block", marginBottom: 3 };
+
+  /* فۆڕمی هاوبەش بۆ زیادکردن و دەستکاری */
+  const entryFields = (
+    <>
+      <div>
+        <label style={labelStyle}>{t.date}</label>
+        <DatePicker value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} style={inputStyle} />
+      </div>
+      <div>
+        <label style={labelStyle}>{t.wkWorker}</label>
+        <select value={form.workerId} onChange={e => pickWorker(e.target.value)} style={inputStyle}>
+          <option value="">- {t.wkWorker} -</option>
+          {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label style={labelStyle}>{t.wkDays}</label>
+        <input type="number" step="0.25" min="0" value={form.days}
+          onChange={e => setForm({ ...form, days: e.target.value })} style={numStyle} />
+      </div>
+      <div>
+        <label style={labelStyle}>{t.wkOvertime}</label>
+        <input type="number" step="0.5" min="0" value={form.overtimeHours}
+          onChange={e => setForm({ ...form, overtimeHours: e.target.value })} style={numStyle} />
+      </div>
+      <div>
+        <label style={labelStyle}>{t.wkDailyRate}</label>
+        <input type="number" value={form.dailyRate}
+          onChange={e => setForm({ ...form, dailyRate: e.target.value })} style={numStyle} />
+      </div>
+      <div>
+        <label style={labelStyle}>{t.wkHourlyRate}</label>
+        <input type="number" value={form.hourlyRate}
+          onChange={e => setForm({ ...form, hourlyRate: e.target.value })} style={numStyle} />
+      </div>
+      <div>
+        <label style={labelStyle}>{t.note}</label>
+        <input value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} style={inputStyle} />
+      </div>
+      <div>
+        <label style={labelStyle}>{t.wkAmount}</label>
+        <div style={{ ...numStyle, background: `${PRIMARY}12`, color: PRIMARY, fontWeight: 800, fontSize: 15, padding: "8px 12px" }}>
+          {fmt(previewAmount)}
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      {alert && <AlertModal message={alert} onOk={() => setAlert(null)} s={s} />}
+      {sizeModal && <SizeModal t={t} s={s} onSelect={sz => doExport(sizeModal.type, sz)} onClose={() => setSizeModal(null)} />}
+      {confirmDel && <ConfirmModal message={t.confirmDelete} onYes={() => doDelete(confirmDel)} onNo={() => setConfirmDel(null)} s={s} t={t} />}
+      {confirmDelWorker && <ConfirmModal message={t.wkDelWorkerConfirm} onYes={() => doDeleteWorker(confirmDelWorker)} onNo={() => setConfirmDelWorker(null)} s={s} t={t} />}
+
+      <StickyHeader s={s}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: PRIMARY }}>{t.sidebar.workers}</h1>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => setSizeModal({ type: "pdf" })} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> PDF</button>
+            <button onClick={() => setSizeModal({ type: "excel" })} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> {t.saveExcel}</button>
+            {!isFrozen && (
+              <button onClick={() => { setShowForm(!showForm); resetForm(); }} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: PRIMARY, color: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><I.Plus /> {t.add}</button>
+            )}
+          </div>
+        </div>
+
+        <div style={{ fontSize: 11, color: s.textMuted, textAlign: "center", marginBottom: 10 }}>
+          ℹ️ {t.wkNoCashNote}
+        </div>
+
+        {/* ======== زیادکردنی کرێکار ======== */}
+        {!isFrozen && (
+          <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap", justifyContent: "center", alignItems: "flex-end" }}>
+            <div style={{ minWidth: 150, flex: 1 }}>
+              <label style={labelStyle}>{t.wkWorker}</label>
+              <input value={wName} onChange={e => setWName(e.target.value)} placeholder={t.wkAddWorker} style={inputStyle} />
+            </div>
+            <div style={{ minWidth: 120 }}>
+              <label style={labelStyle}>{t.wkDailyRate}</label>
+              <input type="number" value={wDaily}
+                onChange={e => {
+                  const v = e.target.value;
+                  setWDaily(v);
+                  const n = Number(v || 0);
+                  setWHourly(n > 0 ? String(Math.round(n / WK_HOURS_PER_DAY)) : "");
+                }}
+                onKeyDown={e => e.key === "Enter" && handleAddWorker()} style={numStyle} />
+            </div>
+            <div style={{ minWidth: 120 }}>
+              <label style={labelStyle}>{t.wkHourlyRate}</label>
+              <input type="number" value={wHourly} onChange={e => setWHourly(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleAddWorker()} style={numStyle} />
+            </div>
+            <button onClick={handleAddWorker} style={{ padding: "8px 18px", borderRadius: 6, border: "none", background: PRIMARY, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+              <I.Plus /> {t.wkAddWorker}
+            </button>
+          </div>
+        )}
+
+        {/* ======== لیستی کرێکارەکان ======== */}
+        {workers.length > 0 && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
+            {workers.map(w => (
+              <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 6, background: s.bgCard2, border: `1px solid ${s.border}`, borderRadius: 20, padding: "5px 12px", fontSize: 12 }}>
+                <strong style={{ color: s.text }}>{w.name}</strong>
+                <span style={{ color: s.textMuted, direction: "ltr", fontSize: 11 }}>
+                  {fmt(w.dailyRate)} / {t.wkDays} · {fmt(w.hourlyRate)} / h
+                </span>
+                {!isFrozen && (
+                  <>
+                    <button onClick={() => openEditWorker(w)} title={t.wkEditWorker} style={{ background: "none", border: "none", color: PRIMARY, cursor: "pointer", padding: 0, display: "flex" }}><I.Edit /></button>
+                    <button onClick={() => setConfirmDelWorker(w.id)} title={t.wkDelWorker} style={{ background: "none", border: "none", color: s.danger, cursor: "pointer", padding: 0, display: "flex" }}><I.Trash /></button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ======== فلتەر ======== */}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
+          <select value={filterWorker} onChange={e => setFilterWorker(e.target.value)} style={{ ...inputStyle, width: "auto", minWidth: 160 }}>
+            <option value="">{t.wkAllWorkers}</option>
+            {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.search} style={{ ...inputStyle, width: "auto", minWidth: 150 }} />
+          <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={{ ...inputStyle, width: "auto", minWidth: 120 }}>
+            <option value="">{t.allMonths}</option>
+            {months.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <DatePicker value={filterFrom} onChange={e => { setFilterFrom(e.target.value); setFilterMonth(""); }} style={{ padding: "8px 8px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 12 }} />
+            <span style={{ color: s.textMuted, fontSize: 11 }}>←</span>
+            <DatePicker value={filterTo} onChange={e => { setFilterTo(e.target.value); setFilterMonth(""); }} style={{ padding: "8px 8px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 12 }} />
+            {(filterFrom || filterTo) && <button onClick={() => { setFilterFrom(""); setFilterTo(""); }} style={{ padding: "6px 8px", borderRadius: 6, border: "none", background: "#FEE2E2", color: "#EF4444", fontSize: 11, cursor: "pointer" }}>✕</button>}
+          </div>
+          {showMarkedOnly
+            ? <button onClick={() => { setShowMarkedOnly(false); setEntries(prev => prev.map(i => ({ ...i, marked: false }))); }} style={{ padding: "8px 18px", borderRadius: 6, border: "none", background: "#D1FAE5", color: "#059669", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{t.showAll}</button>
+            : <button onClick={() => setShowMarkedOnly(true)} style={{ padding: "8px 18px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 12, cursor: "pointer" }}>{t.showMarked}</button>
+          }
+        </div>
+
+        {/* ======== کۆکانەکان ======== */}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          <div style={{ background: `${PRIMARY}15`, borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
+            <span style={{ color: PRIMARY, fontSize: 11 }}>{t.wkTotalDays}: </span>
+            <strong style={{ color: PRIMARY, fontSize: 15, direction: "ltr" }}>{totalDays}</strong>
+          </div>
+          <div style={{ background: "#FEF3C7", borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
+            <span style={{ color: "#B45309", fontSize: 11 }}>{t.wkTotalOvertime}: </span>
+            <strong style={{ color: "#B45309", fontSize: 15, direction: "ltr" }}>{totalOT}</strong>
+          </div>
+          <div style={{ background: "#D1FAE5", borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
+            <span style={{ color: "#059669", fontSize: 11 }}>{t.wkTotalAmount}: </span>
+            <strong style={{ color: "#059669", fontSize: 16, direction: "ltr" }}>{fmt(totalAmt)}</strong>
+          </div>
+        </div>
+      </StickyHeader>
+
+      {/* ======== فۆڕمی زیادکردن ======== */}
+      {!isFrozen && showForm && (
+        <div style={{ background: s.bgCard, border: `1px solid ${PRIMARY}40`, borderRadius: 10, padding: 20, marginBottom: 15 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: PRIMARY, textAlign: "center" }}>{t.add}</h3>
+          <div style={{ fontSize: 11, color: s.textMuted, textAlign: "center", marginBottom: 15 }}>{t.wkFullDayHint}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 12 }}>
+            {entryFields}
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "center" }}>
+            <button onClick={handleSave} style={{ padding: "8px 24px", borderRadius: 6, border: "none", background: PRIMARY, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t.save}</button>
+            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ padding: "8px 24px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 13, cursor: "pointer" }}>{t.cancel}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ======== خشتە ======== */}
+      <div style={{ background: s.bgCard, border: `1px solid ${s.border}`, borderRadius: 10, overflow: "hidden", flex: 1 }}>
+        <div style={{ overflowX: "auto", height: "100%" }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <TH isRtl={isRtl}>{t.date}</TH>
+                <TH isRtl={isRtl}>{t.wkWorker}</TH>
+                <TH isRtl={isRtl}>{t.wkDays}</TH>
+                <TH isRtl={isRtl}>{t.wkOvertime}</TH>
+                <TH isRtl={isRtl}>{t.wkDailyRate}</TH>
+                <TH isRtl={isRtl}>{t.wkHourlyRate}</TH>
+                <TH isRtl={isRtl}>{t.wkAmount}</TH>
+                <TH isRtl={isRtl}>{t.note}</TH>
+                <TH isRtl={isRtl}>{t.mark}</TH>
+                <TH isRtl={isRtl}></TH>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(item => (
+                <tr key={item.id} style={{ background: item.marked ? `${PRIMARY}06` : "transparent", textAlign: "center" }}>
+                  <TD s={s} style={{ direction: "ltr", minWidth: 95 }}>{fmtDate(item.date)}</TD>
+                  <TD s={s} style={{ fontWeight: 600, minWidth: 100 }}>{item.workerName || "-"}</TD>
+                  <TD s={s} style={{ direction: "ltr", minWidth: 55 }}>{Number(item.days || 0) || "-"}</TD>
+                  <TD s={s} style={{ direction: "ltr", minWidth: 60 }}>{Number(item.overtimeHours || 0) || "-"}</TD>
+                  <TD s={s} style={{ direction: "ltr", minWidth: 85, color: s.textMuted }}>{fmt(item.dailyRate)}</TD>
+                  <TD s={s} style={{ direction: "ltr", minWidth: 80, color: s.textMuted }}>{fmt(item.hourlyRate)}</TD>
+                  <TD s={s} style={{ direction: "ltr", fontWeight: 700, minWidth: 95, color: PRIMARY }}>{fmt(item.amount)}</TD>
+                  <TD s={s} style={{ minWidth: 110, maxWidth: 200 }} title={item.note}>{trunc(item.note, 25) || "-"}</TD>
+                  <TD s={s} style={{ minWidth: 35 }}>
+                    <button onClick={() => toggleMark(item.id)} style={{ width: 22, height: 22, borderRadius: 4, border: `2px solid ${item.marked ? PRIMARY : s.border}`, background: item.marked ? PRIMARY : "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", margin: "0 auto" }}>
+                      {item.marked && <I.Check />}
+                    </button>
+                  </TD>
+                  <TD s={s} style={{ minWidth: 60 }}>
+                    {!isFrozen && (
+                      <div style={{ display: "flex", gap: 5, justifyContent: "center" }}>
+                        <button onClick={() => handleEdit(item)} style={{ background: "none", border: "none", color: PRIMARY, cursor: "pointer", padding: 2 }}><I.Edit /></button>
+                        <button onClick={() => setConfirmDel(item.id)} style={{ background: "none", border: "none", color: s.danger, cursor: "pointer", padding: 2 }}><I.Trash /></button>
+                      </div>
+                    )}
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && <div style={{ padding: 40, textAlign: "center", color: s.textMuted, fontSize: 13 }}>{t.noData}</div>}
+        </div>
+      </div>
+
+      {/* ======== دەستکاری تۆمار ======== */}
+      {editModalOpen && (
+        <EditModal title={t.edit} onSave={handleSave} onCancel={() => { setEditModalOpen(false); resetForm(); }} s={s} t={t}>
+          <div style={{ fontSize: 11, color: s.textMuted, textAlign: "center", marginBottom: 12 }}>{t.wkFullDayHint}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {entryFields}
+          </div>
+        </EditModal>
+      )}
+
+      {/* ======== دەستکاری نرخی کرێکار ======== */}
+      {editWorker && (
+        <EditModal title={t.wkEditWorker} onSave={saveEditWorker} onCancel={() => setEditWorker(null)} s={s} t={t}>
+          <div style={{ background: "#FEF3C7", color: "#B45309", borderRadius: 8, padding: "8px 12px", fontSize: 11, textAlign: "center", marginBottom: 14 }}>
+            ⚠️ {t.wkRateNote}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+            <div>
+              <label style={labelStyle}>{t.wkWorker}</label>
+              <input value={wForm.name} onChange={e => setWForm({ ...wForm, name: e.target.value })} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>{t.wkDailyRate}</label>
+              <input type="number" value={wForm.dailyRate}
+                onChange={e => {
+                  const v = e.target.value;
+                  const n = Number(v || 0);
+                  setWForm({ ...wForm, dailyRate: v, hourlyRate: n > 0 ? String(Math.round(n / WK_HOURS_PER_DAY)) : wForm.hourlyRate });
+                }} style={numStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>{t.wkHourlyRate}</label>
+              <input type="number" value={wForm.hourlyRate} onChange={e => setWForm({ ...wForm, hourlyRate: e.target.value })} style={numStyle} />
+            </div>
+          </div>
+        </EditModal>
+      )}
     </div>
   );
 }

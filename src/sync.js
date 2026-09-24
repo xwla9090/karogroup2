@@ -108,6 +108,47 @@ export const TABLES = {
     })
   },
 
+  /* ============ حیساباتی کرێکار ============ */
+
+  /* ناونیشانی کرێکارەکان + نرخی ئێستایان */
+  workers: {
+    lsKey: "karo_workers_",
+    keepLocal: [],
+    fromRow: w => ({
+      id: w.id, name: w.name,
+      dailyRate: w.dailyrate, hourlyRate: w.hourlyrate,
+      note: w.note, active: w.active !== false
+    }),
+    toRow: (w, project) => ({
+      id: w.id, project, name: S(w.name),
+      dailyrate: N(w.dailyRate), hourlyrate: N(w.hourlyRate),
+      note: S(w.note), active: w.active !== false
+    })
+  },
+
+  /* تۆماری ڕۆژانەی ئیش.
+     ⭐ گرنگ: نرخی ڕۆژ و سەعات لەگەڵ هەر تۆمارێکدا هەڵدەگیرێن (snapshot).
+     بۆیە ئەگەر دواتر نرخی کرێکارێک بگۆڕدرێت، تۆمارە کۆنەکان
+     بە نرخی کۆنی خۆیان دەمێننەوە — تەنها تۆمارە نوێیەکان نرخی نوێ
+     وەردەگرن. */
+  worker_days: {
+    lsKey: "karo_wdays_",
+    keepLocal: [],
+    fromRow: d => ({
+      id: d.id, workerId: d.workerid, workerName: d.workername,
+      date: d.date, days: d.days, overtimeHours: d.overtimehours,
+      dailyRate: d.dailyrate, hourlyRate: d.hourlyrate,
+      amount: d.amount, note: d.note, marked: d.marked
+    }),
+    toRow: (d, project) => ({
+      id: d.id, project,
+      workerid: S(d.workerId), workername: S(d.workerName),
+      date: S(d.date), days: N(d.days), overtimehours: N(d.overtimeHours),
+      dailyrate: N(d.dailyRate), hourlyrate: N(d.hourlyRate),
+      amount: N(d.amount), note: S(d.note), marked: B(d.marked)
+    })
+  },
+
   invoices: {
     lsKey: "karo_inv_",
     keepLocal: [],
