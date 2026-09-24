@@ -291,6 +291,12 @@ const T = {
     wkAddEntry: "تۆمارکردنی ئیشی ڕۆژانە", wkNoEntries: "هێشتا هیچ ئیشێک تۆمار نەکراوە",
     wkFullDay: "ڕۆژێکی تەواو (٩ سەعات)", wkPartial: "ڕۆژی تەواو نییە — تەنها سەعات",
     wkHours: "سەعات", wkWorkedHours: "کاتژمێری ئیشکراو",
+    wkReceipt: "وەسڵی وەرگرتنی کرێ", wkPeriod: "ماوە", wkPrintDate: "بەرواری دەرچوون",
+    wkReceiptAsk: "وەسڵی واژووکردنیشت دەوێت؟",
+    wkReceiptAskHint: "وەسڵێک بۆ هەر کرێکارێک دروست دەکرێت — لیستی ڕۆژانە، کۆی ڕۆژ و سەعات و پارە، لەگەڵ شوێنی واژوو.",
+    wkReceiptYes: "بەڵێ — ئێکسل + وەسڵ", wkReceiptNo: "نەخێر — تەنها ئێکسل",
+    wkReceiver: "وەرگر", wkIssuer: "دەرکەر", wkSignature: "واژوو",
+    wkReceiptText: "من، ناوی خوارەوە، دان بەوەدا دەنێم کە کۆی بڕی پارەی سەرەوەم بە تەواوی وەرگرتووە و هیچ داواکارییەکی دیکەم بۆ ئەم ماوەیە نەماوە.",
     wkNeedValue: "سەح لێبدە بۆ ڕۆژێکی تەواو، یان ژمارەی سەعات بنووسە",
     wkNoWorkers: "سەرەتا کرێکارێک زیاد بکە لە سەرەوە — ناو و نرخی ڕۆژی بنووسە",
     wkDelWorkerConfirm: "دڵنیایت؟ کرێکارەکە لە لیست لادەبرێت بەڵام تۆمارە کۆنەکانی دەمێننەوە",
@@ -399,6 +405,12 @@ const T = {
     wkAddEntry: "Record a work day", wkNoEntries: "No work recorded yet",
     wkFullDay: "Full day (9 hours)", wkPartial: "Not a full day - hours only",
     wkHours: "Hours", wkWorkedHours: "Hours worked",
+    wkReceipt: "Wage Receipt", wkPeriod: "Period", wkPrintDate: "Issued",
+    wkReceiptAsk: "Include a signed receipt?",
+    wkReceiptAskHint: "A receipt is produced for each worker - daily list, total days, hours and amount, with a signature area.",
+    wkReceiptYes: "Yes - Excel + receipt", wkReceiptNo: "No - Excel only",
+    wkReceiver: "Received by", wkIssuer: "Issued by", wkSignature: "Signature",
+    wkReceiptText: "I, the undersigned, confirm that I have received the full amount shown above and have no further claim for this period.",
     wkNeedValue: "Tick for a full day, or enter the number of hours",
     wkNoWorkers: "Add a worker above first — name and day rate",
     wkDelWorkerConfirm: "Are you sure? The worker is removed from the list but past entries remain",
@@ -507,6 +519,12 @@ const T = {
     wkAddEntry: "تسجيل يوم عمل", wkNoEntries: "لم يتم تسجيل أي عمل بعد",
     wkFullDay: "يوم كامل (٩ ساعات)", wkPartial: "ليس يوماً كاملاً — ساعات فقط",
     wkHours: "ساعات", wkWorkedHours: "ساعات العمل",
+    wkReceipt: "إيصال استلام الأجرة", wkPeriod: "الفترة", wkPrintDate: "تاريخ الإصدار",
+    wkReceiptAsk: "هل تريد إيصالاً للتوقيع؟",
+    wkReceiptAskHint: "يُنشأ إيصال لكل عامل - قائمة الأيام، مجموع الأيام والساعات والمبلغ، مع مكان للتوقيع.",
+    wkReceiptYes: "نعم - إكسل + إيصال", wkReceiptNo: "لا - إكسل فقط",
+    wkReceiver: "المستلم", wkIssuer: "المُصدِر", wkSignature: "التوقيع",
+    wkReceiptText: "أنا الموقع أدناه أقر باستلام كامل المبلغ المذكور أعلاه ولا مطالبة لي عن هذه الفترة.",
     wkNeedValue: "ضع علامة ليوم كامل، أو أدخل عدد الساعات",
     wkNoWorkers: "أضف عاملاً في الأعلى أولاً — الاسم وأجر اليوم",
     wkDelWorkerConfirm: "هل أنت متأكد؟ يُحذف العامل من القائمة لكن السجلات السابقة تبقى",
@@ -5731,6 +5749,7 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
   const [wForm, setWForm] = useState({ name: "", dailyRate: "", hourlyRate: "" });
   const [confirmDelWorker, setConfirmDelWorker] = useState(null);
   const [workersModal, setWorkersModal] = useState(false);
+  const [excelAsk, setExcelAsk] = useState(false);
 
   /* ---------- فۆڕمی تۆماری ڕۆژانە ---------- */
   const blankForm = () => ({
@@ -5918,6 +5937,130 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
     setSizeModal(null);
   };
 
+  /* ==================== وەسڵی وەرگرتنی کرێ ====================
+     لیستی ڕۆژانەی کرێکار + کۆی ڕۆژ و سەعات و پارە + شوێنی واژوو.
+     ئەگەر چەند کرێکارێک لە فلتەردا بن، بۆ هەریەکەیان لاپەڕەیەکی
+     جیاواز دروست دەکرێت. */
+  const printReceipt = () => {
+    if (filtered.length === 0) { setAlert(t.noData); return; }
+
+    const groups = {};
+    filtered.forEach(i => {
+      const k = String(i.workerId || i.workerName || "-");
+      if (!groups[k]) groups[k] = { name: i.workerName || "-", rows: [] };
+      groups[k].rows.push(i);
+    });
+
+    /* ماوەکە: ئەگەر فلتەری بەروار دانرابێت ئەوە بەکاردێت، ئەگینا
+       بەرواری یەکەم و دوایین تۆماری خودی کرێکارەکە */
+    const fixedPeriod = (filterFrom || filterTo)
+      ? ((fmtDate(filterFrom) || "…") + "  —  " + (fmtDate(filterTo) || "…"))
+      : (filterMonth || null);
+
+    const pages = Object.keys(groups).map(k => {
+      const g = groups[k];
+      const rows = g.rows.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
+      const gDays = rows.reduce((a2, b2) => a2 + Number(b2.days || 0), 0);
+      const gHours = rows.reduce((a2, b2) => a2 + Number(b2.overtimeHours || 0), 0);
+      const gAmount = rows.reduce((a2, b2) => a2 + Number(b2.amount || 0), 0);
+      const ds = rows.map(r => String(r.date || "")).filter(Boolean).sort();
+      const period = fixedPeriod || (ds.length
+        ? (ds[0] === ds[ds.length - 1] ? fmtDate(ds[0]) : fmtDate(ds[0]) + "  —  " + fmtDate(ds[ds.length - 1]))
+        : "-");
+
+      const trs = rows.map(r => (
+        "<tr>" +
+        "<td>" + fmtDate(r.date) + "</td>" +
+        "<td class='" + (Number(r.days || 0) >= 1 ? "ok" : "no") + "'>" + (Number(r.days || 0) >= 1 ? "&#10004;" : "&#10008;") + "</td>" +
+        "<td>" + (Number(r.overtimeHours || 0) || "-") + "</td>" +
+        "<td>" + fmt(r.dailyRate) + "</td>" +
+        "<td>" + fmt(r.hourlyRate) + "</td>" +
+        "<td class='amt'>" + fmt(r.amount) + "</td>" +
+        "<td class='nt'>" + String(r.note || "") + "</td>" +
+        "</tr>"
+      )).join("");
+
+      return (
+        "<div class='page'>" +
+          "<div class='watermark'><img src='" + KARO_LOGO_DATAURI + "' /></div>" +
+          "<div class='hdr'>" +
+            "<img class='logo' src='" + KARO_LOGO_DATAURI + "' />" +
+            "<div class='co'>KARO GROUP</div>" +
+            "<div class='ttl'>" + t.wkReceipt + "</div>" +
+          "</div>" +
+          "<div class='meta'>" +
+            "<div><span>" + t.wkWorker + ":</span> <b>" + g.name + "</b></div>" +
+            "<div><span>" + t.wkPeriod + ":</span> <b>" + period + "</b></div>" +
+            "<div><span>" + t.wkPrintDate + ":</span> <b>" + fmtDate(today()) + "</b></div>" +
+          "</div>" +
+          "<table>" +
+            "<thead><tr>" +
+              "<th>" + t.date + "</th><th>" + t.wkDays + "</th><th>" + t.wkHours + "</th>" +
+              "<th>" + t.wkDailyRate + "</th><th>" + t.wkHourlyRate + "</th>" +
+              "<th>" + t.wkAmount + "</th><th>" + t.note + "</th>" +
+            "</tr></thead>" +
+            "<tbody>" + trs + "</tbody>" +
+          "</table>" +
+          "<div class='sum'>" +
+            "<div class='box'><span>" + t.wkTotalDays + "</span><b>" + gDays + "</b></div>" +
+            "<div class='box'><span>" + t.wkTotalOvertime + "</span><b>" + gHours + "</b></div>" +
+            "<div class='box big'><span>" + t.wkTotalAmount + "</span><b>" + fmt(gAmount) + "</b></div>" +
+          "</div>" +
+          "<div class='decl'>" + t.wkReceiptText + "</div>" +
+          "<div class='sign'>" +
+            "<div class='sbox'><div class='slbl'>" + t.wkReceiver + "</div>" +
+              "<div class='sname'>" + g.name + "</div><div class='sline'></div>" +
+              "<div class='scap'>" + t.wkSignature + "</div></div>" +
+            "<div class='sbox'><div class='slbl'>" + t.wkIssuer + "</div>" +
+              "<div class='sname'>&nbsp;</div><div class='sline'></div>" +
+              "<div class='scap'>" + t.wkSignature + "</div></div>" +
+          "</div>" +
+        "</div>"
+      );
+    }).join("");
+
+    const w = window.open("", "_blank");
+    w.document.write(
+      "<html dir='" + (isRtl ? "rtl" : "ltr") + "'><head><meta charset='utf-8'/><title>" + t.wkReceipt + "</title><style>" +
+      "@page{size:A4;margin:1.4cm}" +
+      "*{box-sizing:border-box}" +
+      "body{font-family:'Segoe UI',Tahoma,sans-serif;margin:0;color:#111}" +
+      ".page{position:relative;min-height:25cm;page-break-after:always;padding-bottom:10px}" +
+      ".page:last-child{page-break-after:auto}" +
+      ".watermark{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);width:520px;opacity:.10;z-index:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
+      ".watermark img{width:100%;display:block}" +
+      ".hdr,.meta,table,.sum,.decl,.sign{position:relative;z-index:1}" +
+      ".hdr{text-align:center;border-bottom:3px solid " + PRIMARY + ";padding-bottom:12px;margin-bottom:16px}" +
+      ".hdr .logo{height:70px;display:block;margin:0 auto 6px}" +
+      ".co{font-size:20px;font-weight:800;color:" + PRIMARY + ";letter-spacing:1px}" +
+      ".ttl{font-size:15px;font-weight:700;margin-top:6px}" +
+      ".meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:14px;background:#f6faf8;border:1px solid #dceee7;border-radius:6px;padding:10px 14px}" +
+      ".meta span{color:#667}" +
+      "table{width:100%;border-collapse:collapse;font-size:11.5px}" +
+      "th{background:" + PRIMARY + ";color:#fff;padding:7px 5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
+      "td{border:1px solid #ddd;padding:6px 5px;text-align:center}" +
+      "td.ok{color:#059669;font-weight:800}td.no{color:#EF4444;font-weight:800}" +
+      "td.amt{font-weight:700}td.nt{text-align:start;max-width:150px}" +
+      ".sum{display:flex;gap:10px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap}" +
+      ".box{border:1px solid #dceee7;background:#f6faf8;border-radius:6px;padding:8px 16px;text-align:center;min-width:110px}" +
+      ".box span{display:block;font-size:10px;color:#667}" +
+      ".box b{font-size:15px}" +
+      ".box.big{background:" + PRIMARY + "18;border-color:" + PRIMARY + "}" +
+      ".box.big b{font-size:19px;color:" + PRIMARY + "}" +
+      ".decl{margin-top:22px;font-size:12px;line-height:1.9;border:1px dashed #bbb;border-radius:6px;padding:12px 14px;background:#fffdf5}" +
+      ".sign{display:flex;gap:40px;margin-top:34px}" +
+      ".sbox{flex:1;text-align:center}" +
+      ".slbl{font-size:11px;color:#667;margin-bottom:6px}" +
+      ".sname{font-size:13px;font-weight:700;margin-bottom:26px}" +
+      ".sline{border-bottom:1.5px solid #333;margin-bottom:5px}" +
+      ".scap{font-size:10px;color:#667}" +
+      "</style></head><body>" + pages + "</body></html>"
+    );
+    w.document.close();
+    w.focus();
+    setTimeout(function () { w.print(); }, 350);
+  };
+
   const inputStyle = { width: "100%", padding: "8px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 13, textAlign: "center" };
   const numStyle = { ...inputStyle, direction: "ltr" };
   const labelStyle = { fontSize: 11, color: s.textMuted, fontWeight: 600, textAlign: "center", display: "block", marginBottom: 3 };
@@ -5998,8 +6141,9 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: PRIMARY }}>{t.sidebar.workers}</h1>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button onClick={() => setWorkersModal(true)} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${PRIMARY}`, background: `${PRIMARY}12`, color: PRIMARY, cursor: "pointer", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>👥 {t.wkWorkersList} ({workers.length})</button>
+            <button onClick={printReceipt} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>🧾 {t.wkReceipt}</button>
             <button onClick={() => setSizeModal({ type: "pdf" })} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> PDF</button>
-            <button onClick={() => setSizeModal({ type: "excel" })} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> {t.saveExcel}</button>
+            <button onClick={() => setExcelAsk(true)} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> {t.saveExcel}</button>
             {!isFrozen && (
               <button onClick={() => { setShowForm(!showForm); resetForm(); }} style={{ padding: "7px 16px", borderRadius: 6, border: "none", background: showForm ? "#EF4444" : PRIMARY, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
                 {showForm ? <>✕ {t.cancel}</> : <><I.Plus /> {t.wkAddEntry}</>}
@@ -6144,6 +6288,32 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
             {entryFields}
           </div>
         </EditModal>
+      )}
+
+      {/* ======== پرسیاری وەسڵ لەگەڵ ئێکسل ======== */}
+      {excelAsk && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+             onClick={() => setExcelAsk(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: s.bgCard, borderRadius: 16, padding: 28, maxWidth: 420, width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 34, marginBottom: 10 }}>🧾</div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: s.text, marginBottom: 8 }}>{t.wkReceiptAsk}</h3>
+            <p style={{ fontSize: 12, color: s.textMuted, marginBottom: 20, lineHeight: 1.7 }}>{t.wkReceiptAskHint}</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button onClick={() => { setExcelAsk(false); doExport("excel"); setTimeout(printReceipt, 400); }}
+                style={{ padding: "11px 0", borderRadius: 8, border: "none", background: PRIMARY, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {t.wkReceiptYes}
+              </button>
+              <button onClick={() => { setExcelAsk(false); doExport("excel"); }}
+                style={{ padding: "11px 0", borderRadius: 8, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 13, cursor: "pointer" }}>
+                {t.wkReceiptNo}
+              </button>
+              <button onClick={() => setExcelAsk(false)}
+                style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "transparent", color: s.textMuted, fontSize: 12, cursor: "pointer" }}>
+                {t.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ======== لیستی کرێکارەکان (مۆداڵ) ======== */}
