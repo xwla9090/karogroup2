@@ -117,3 +117,27 @@ test("٩) سلفەی کۆنکرێت: payments بە دروستی map دەکرێت
   expect(c.payments[0].amount).toBe(300);
   expect(c.depositClaimed).toBe(true);
 });
+
+test("١٠) سێرڤەری بەتاڵ ڕیزە ناوخۆییەکان ناسڕێتەوە — دەیاننێرێتەوە", () => {
+  /* دۆخی «تەیبڵەکە تازە دروستکراوە»: سێرڤەر بەتاڵە بەڵام
+     لە ناوخۆدا داتامان هەیە. نابێت بسڕدرێنەوە. */
+  sync.saveLocalList("expenses", P, [
+    { id: "a", date: "2026-09-25", amountIQD: 100 },
+    { id: "b", date: "2026-09-25", amountIQD: 200 }
+  ]);
+  const before = sync.pendingCount();
+  sync.mergeRemote("expenses", P, [], { full: true });
+
+  expect(sync.localList("expenses", P)).toHaveLength(2);     // ⭐ نەسڕاونەتەوە
+  expect(sync.pendingCount()).toBe(before + 2);              // ⭐ ڕیزکراون بۆ ناردن
+});
+
+test("١١) سێرڤەری ناوەڕۆکدار هێشتا ڕیزی سڕاو لادەبات", () => {
+  /* ئەمە دڵنیایی دەدات کە پاراستنەکەی سەرەوە ڕەفتاری ئاسایی تێک نەداوە */
+  sync.saveLocalList("expenses", P, [
+    { id: "keep", amountIQD: 1 },
+    { id: "gone", amountIQD: 2 }
+  ]);
+  sync.mergeRemote("expenses", P, [row("keep", 1)], { full: true });
+  expect(sync.localList("expenses", P).map(r => r.id)).toEqual(["keep"]);
+});

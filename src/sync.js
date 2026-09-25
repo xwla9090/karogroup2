@@ -220,6 +220,16 @@ function enqueue(op) {
   scheduleFlush();
 }
 
+/** ئایا ئەم هەڵەیە کاتییە و دەبێت بۆ هەمیشە دووبارە هەوڵ بدرێت؟
+ *  • PGRST205 / PGRST20x → تەیبڵ یان ستوون لە cache ـی schema نییە
+ *  • 404 / failed to fetch → تۆڕ یان ڕێکخستن
+ *  ئەمانە کێشەی ڕێکخستنن، نەک کێشەی داتا. */
+function isRetryableForever(err) {
+  if (!err) return true;
+  const m = ((err.message || "") + " " + (err.code || "") + " " + (err.details || "")).toLowerCase();
+  return /pgrst205|pgrst204|pgrst202|could not find the table|schema cache|failed to fetch|networkerror|load failed|timeout|503|502|504/.test(m);
+}
+
 /* ============================ FLUSH ============================ */
 let flushing = false;
 let flushAgain = false;
@@ -235,6 +245,7 @@ export async function flush() {
       if (!getPending().some(o => o.opId === op.opId)) continue;
 
       let ok = false;
+      let lastErr = null;
       try {
         let res;
         if (op.action === "upsert") {
@@ -247,6 +258,7 @@ export async function flush() {
         if (res && res.error) throw res.error;
         ok = true;
       } catch (e) {
+        lastErr = e;
         console.warn("[sync] op failed:", op.table, op.action, op.id, e && e.message);
       }
 
@@ -260,10 +272,19 @@ export async function flush() {
         setPending(cur);
         emitUpdate();
       } else {
-        cur[i].tries = (cur[i].tries || 0) + 1;
-        if (cur[i].tries >= MAX_TRIES) {
-          console.error("[sync] op دوای " + MAX_TRIES + " هەوڵ لادەبرێت:", op.table, op.id);
-          cur.splice(i, 1);
+        /* ⭐ گرنگ: هەڵەی ڕێکخستن (تەیبڵ دروست نەکراوە) یان هەڵەی تۆڕ
+           نابێت هەوڵەکان بخوات — ئەگینا پاش چەند خولەکێک نووسینەکە
+           بە هەڵە فڕێدەدرێت و داتاکە بۆ هەتاهەتایە لەدەست دەچێت.
+           تەنها هەڵەی خودی داتا (بۆ نموونە ستوونێکی هەڵە) دەژمێردرێت. */
+        if (isRetryableForever(lastErr)) {
+          cur[i].tries = 0;
+          cur[i].lastError = (lastErr && lastErr.message) ? String(lastErr.message).slice(0, 120) : "unknown";
+        } else {
+          cur[i].tries = (cur[i].tries || 0) + 1;
+          if (cur[i].tries >= MAX_TRIES) {
+            console.error("[sync] op دوای " + MAX_TRIES + " هەوڵ لادەبرێت:", op.table, op.id, lastErr);
+            cur.splice(i, 1);
+          }
         }
         setPending(cur);
         /* ئەگەر تۆڕ کەوتووە، بەردەوام مەبە */
@@ -352,6 +373,23 @@ export function mergeRemote(table, project, remoteRows, opts) {
 
   for (const id of resurrect) {
     enqueue({ table, action: "delete", id });
+  }
+
+  /* ⭐ پاراستنی گرنگ: ئەگەر تەیبڵەکەی سێرڤەر بە تەواوی بەتاڵ بێت
+     بەڵام لە ناوخۆدا ڕیزمان هەبێت، ئەوە بە ئەگەرێکی زۆر واتای ئەوەیە
+     کە هێشتا هیچ کاتێک نەنێردراون (بۆ نموونە تەیبڵەکە تازە دروستکراوە)
+     — نەک ئەوەی کەسێک هەمووی سڕیبێتەوە. لەم حاڵەتەدا مەیانسڕەوە،
+     بەیانێنێرەوە. سڕینەوەی ڕاستەقینەی تاک بە tombstone و realtime
+     کارەکەی دەکات، و Format خۆی localStorage پاک دەکاتەوە. */
+  if (full && arr(remoteRows).length === 0 && local.length > 0) {
+    console.warn("[sync] " + table + ": سێرڤەر بەتاڵە بەڵام " + local.length +
+                 " ڕیزی ناوخۆیی هەیە — دەنێردرێنەوە لە جیاتی سڕینەوە");
+    for (const l of local) {
+      if (l && l.id != null && !tombSet.has(String(l.id))) {
+        enqueue({ table, action: "upsert", id: l.id, row: def.toRow(l, project) });
+      }
+    }
+    return false;
   }
 
   const before = JSON.stringify(local);
