@@ -293,8 +293,10 @@ const T = {
     wkHours: "سەعات", wkWorkedHours: "کاتژمێری ئیشکراو",
     wkReceipt: "وەسڵی وەرگرتنی کرێ", wkPeriod: "ماوە", wkPrintDate: "بەرواری دەرچوون",
     wkReceiptAsk: "وەسڵی واژووکردنیشت دەوێت؟",
-    wkReceiptAskHint: "وەسڵێک بۆ هەر کرێکارێک دروست دەکرێت — لیستی ڕۆژانە، کۆی ڕۆژ و سەعات و پارە، لەگەڵ شوێنی واژوو.",
-    wkReceiptYes: "بەڵێ — ئێکسل + وەسڵ", wkReceiptNo: "نەخێر — تەنها ئێکسل",
+    wkReceiptAskHint: "فایلی Excel دوو جۆر شیتی دەبێت: شیتی «وەسڵ» بۆ هەر کرێکارێک (بە لۆگۆ، کۆی ڕۆژ و سەعات و پارە، و شوێنی واژوو)، و شیتی «لیستی ڕۆژانە».",
+    wkReceiptYes: "بەڵێ — وەسڵ + لیست", wkReceiptNo: "نەخێر — تەنها لیست",
+    wkSheetList: "لیستی ڕۆژانە", wkFromDate: "لە بەرواری", wkToDate: "تا بەرواری",
+    wkExcelNote: "⚠ تکایە پێش واژووکردن پارەکە بە وردی بژمێرە. دوای واژووکردن، هیچ بەرپرسیارێتییەک لەسەر کەمی پارەکە نامێنێت.",
     wkReceiver: "وەرگر", wkIssuer: "دەرکەر", wkSignature: "واژوو",
     wkReceiptText: "من، ناوی خوارەوە، دان بەوەدا دەنێم کە کۆی بڕی پارەی سەرەوەم بە تەواوی وەرگرتووە و هیچ داواکارییەکی دیکەم بۆ ئەم ماوەیە نەماوە.",
     wkNeedValue: "سەح لێبدە بۆ ڕۆژێکی تەواو، یان ژمارەی سەعات بنووسە",
@@ -407,8 +409,10 @@ const T = {
     wkHours: "Hours", wkWorkedHours: "Hours worked",
     wkReceipt: "Wage Receipt", wkPeriod: "Period", wkPrintDate: "Issued",
     wkReceiptAsk: "Include a signed receipt?",
-    wkReceiptAskHint: "A receipt is produced for each worker - daily list, total days, hours and amount, with a signature area.",
-    wkReceiptYes: "Yes - Excel + receipt", wkReceiptNo: "No - Excel only",
+    wkReceiptAskHint: "The Excel file gets two kinds of sheet: a Receipt sheet per worker (logo, total days, hours and amount, signature area), plus the Daily list sheet.",
+    wkReceiptYes: "Yes - receipt + list", wkReceiptNo: "No - list only",
+    wkSheetList: "Daily list", wkFromDate: "From date", wkToDate: "To date",
+    wkExcelNote: "⚠ Please count the money carefully before signing. After signing, no claim for a shortfall will be accepted.",
     wkReceiver: "Received by", wkIssuer: "Issued by", wkSignature: "Signature",
     wkReceiptText: "I, the undersigned, confirm that I have received the full amount shown above and have no further claim for this period.",
     wkNeedValue: "Tick for a full day, or enter the number of hours",
@@ -521,8 +525,10 @@ const T = {
     wkHours: "ساعات", wkWorkedHours: "ساعات العمل",
     wkReceipt: "إيصال استلام الأجرة", wkPeriod: "الفترة", wkPrintDate: "تاريخ الإصدار",
     wkReceiptAsk: "هل تريد إيصالاً للتوقيع؟",
-    wkReceiptAskHint: "يُنشأ إيصال لكل عامل - قائمة الأيام، مجموع الأيام والساعات والمبلغ، مع مكان للتوقيع.",
-    wkReceiptYes: "نعم - إكسل + إيصال", wkReceiptNo: "لا - إكسل فقط",
+    wkReceiptAskHint: "يحتوي ملف Excel على نوعين من الأوراق: ورقة إيصال لكل عامل (شعار، مجموع الأيام والساعات والمبلغ، مكان للتوقيع)، وورقة القائمة اليومية.",
+    wkReceiptYes: "نعم - إيصال + قائمة", wkReceiptNo: "لا - قائمة فقط",
+    wkSheetList: "القائمة اليومية", wkFromDate: "من تاريخ", wkToDate: "إلى تاريخ",
+    wkExcelNote: "⚠ يرجى عد المبلغ بدقة قبل التوقيع. بعد التوقيع لا تُقبل أي مطالبة بنقص المبلغ.",
     wkReceiver: "المستلم", wkIssuer: "المُصدِر", wkSignature: "التوقيع",
     wkReceiptText: "أنا الموقع أدناه أقر باستلام كامل المبلغ المذكور أعلاه ولا مطالبة لي عن هذه الفترة.",
     wkNeedValue: "ضع علامة ليوم كامل، أو أدخل عدد الساعات",
@@ -6061,6 +6067,276 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
     setTimeout(function () { w.print(); }, 350);
   };
 
+  /* ==================== دروستکردنی فایلی EXCEL ====================
+     فایلەکە دوو جۆر شیتی تێدایە:
+       ١. «وەسڵ» — بۆ هەر کرێکارێک: لۆگۆ، ناو، ماوە، کۆی ڕۆژ و سەعات
+          و پارە، تێبینی، و شوێنی واژوو.
+       ٢. «لیستی ڕۆژانە» — هەموو تۆمارەکان بە وردی.
+
+     ExcelJS بە دواکەوتن بار دەکرێت (dynamic import) تا قەبارەی
+     سەرەکیی سایتەکە گەورە نەکات — تەنها کاتێک دەریدەهێنیت دادەبەزێت. */
+  const ARGB = (hex) => "FF" + String(hex).replace("#", "").toUpperCase();
+  const XL_PRIMARY = ARGB(PRIMARY);
+
+  const safeSheetName = (n, used) => {
+    let base = String(n || "-").replace(/[\[\]\*\?\/\\:]/g, " ").trim().slice(0, 28) || "-";
+    let name = base, k = 2;
+    while (used.has(name)) { name = (base.slice(0, 26) + " " + k); k++; }
+    used.add(name);
+    return name;
+  };
+
+  const buildExcel = async (withReceipt) => {
+    if (filtered.length === 0) { setAlert(t.noData); return; }
+    let ExcelJS;
+    try {
+      ExcelJS = (await import("exceljs")).default;
+    } catch (e) {
+      console.error("[workers excel] exceljs load failed", e);
+      setAlert("Excel: " + (e && e.message ? e.message : "error"));
+      return;
+    }
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "KARO GROUP";
+    wb.created = new Date();
+
+    const thin = { style: "thin", color: { argb: "FFBBBBBB" } };
+    const allThin = { top: thin, bottom: thin, left: thin, right: thin };
+    const used = new Set();
+
+    /* ---------- گرووپکردن بە پێی کرێکار ---------- */
+    const groups = {};
+    filtered.forEach(i => {
+      const k = String(i.workerId || i.workerName || "-");
+      if (!groups[k]) groups[k] = { name: i.workerName || "-", rows: [] };
+      groups[k].rows.push(i);
+    });
+
+    /* ═══════════ شیتی وەسڵ بۆ هەر کرێکارێک ═══════════ */
+    if (withReceipt) {
+      let logoId = null;
+      try {
+        logoId = wb.addImage({ base64: KARO_LOGO_DATAURI, extension: "png" });
+      } catch (e) { console.warn("[workers excel] logo skipped", e); }
+
+      Object.keys(groups).forEach(key => {
+        const g = groups[key];
+        const rows = g.rows.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
+        const gDays = rows.reduce((x, y) => x + Number(y.days || 0), 0);
+        const gHours = rows.reduce((x, y) => x + Number(y.overtimeHours || 0), 0);
+        const gAmount = rows.reduce((x, y) => x + Number(y.amount || 0), 0);
+        const ds = rows.map(r => String(r.date || "")).filter(Boolean).sort();
+        const from = ds.length ? fmtDate(ds[0]) : "-";
+        const to = ds.length ? fmtDate(ds[ds.length - 1]) : "-";
+
+        const ws = wb.addWorksheet(safeSheetName(g.name, used), {
+          views: [{ rightToLeft: isRtl, showGridLines: false }],
+          pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+                       margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } }
+        });
+
+        ws.columns = [
+          { width: 16 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 16 }
+        ];
+
+        /* --- لۆگۆ --- */
+        if (logoId !== null) {
+          ws.addImage(logoId, { tl: { col: 0.25, row: 0.3 }, ext: { width: 84, height: 112 } });
+        }
+        for (let r = 1; r <= 6; r++) ws.getRow(r).height = 19;
+
+        /* --- ناونیشان --- */
+        ws.mergeCells("B1:E2");
+        const co = ws.getCell("B1");
+        co.value = "KARO GROUP";
+        co.font = { name: "Arial", size: 22, bold: true, color: { argb: XL_PRIMARY } };
+        co.alignment = { horizontal: "center", vertical: "middle" };
+
+        ws.mergeCells("B3:E4");
+        const ttl = ws.getCell("B3");
+        ttl.value = t.wkReceipt;
+        ttl.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF333333" } };
+        ttl.alignment = { horizontal: "center", vertical: "middle" };
+
+        ws.mergeCells("A7:E7");
+        ws.getCell("A7").border = { bottom: { style: "medium", color: { argb: XL_PRIMARY } } };
+
+        /* --- زانیاری کرێکار --- */
+        const info = [
+          [t.wkWorker, g.name],
+          [t.wkFromDate, from],
+          [t.wkToDate, to],
+          [t.wkPrintDate, fmtDate(today())]
+        ];
+        info.forEach((pair, idx) => {
+          const r = 9 + idx;
+          const lc = ws.getCell("A" + r);
+          lc.value = pair[0];
+          lc.font = { name: "Arial", size: 11, bold: true, color: { argb: "FF666666" } };
+          lc.alignment = { horizontal: isRtl ? "right" : "left", vertical: "middle" };
+          ws.mergeCells("B" + r + ":E" + r);
+          const vc = ws.getCell("B" + r);
+          vc.value = pair[1];
+          vc.font = { name: "Arial", size: 12, bold: true };
+          vc.alignment = { horizontal: isRtl ? "right" : "left", vertical: "middle" };
+          ws.getRow(r).height = 20;
+        });
+
+        /* --- کۆکان --- */
+        const hRow = 14;
+        const heads = [t.wkTotalDays, t.wkTotalOvertime, t.wkTotalAmount];
+        ["B", "C", "D"].forEach((col, i2) => {
+          const c = ws.getCell(col + hRow);
+          c.value = heads[i2];
+          c.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+          c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PRIMARY } };
+          c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+          c.border = allThin;
+        });
+        ws.getRow(hRow).height = 24;
+
+        const vals = [gDays, gHours, gAmount];
+        ["B", "C", "D"].forEach((col, i2) => {
+          const c = ws.getCell(col + (hRow + 1));
+          c.value = vals[i2];
+          c.numFmt = "#,##0";
+          c.font = { name: "Arial", size: i2 === 2 ? 16 : 13, bold: true,
+                     color: { argb: i2 === 2 ? XL_PRIMARY : "FF222222" } };
+          c.alignment = { horizontal: "center", vertical: "middle" };
+          c.border = allThin;
+          if (i2 === 2) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF6F2" } };
+        });
+        ws.getRow(hRow + 1).height = 30;
+
+        /* --- تێبینی گرنگ --- */
+        ws.mergeCells("A" + (hRow + 3) + ":E" + (hRow + 4));
+        const warn = ws.getCell("A" + (hRow + 3));
+        warn.value = t.wkExcelNote;
+        warn.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFB45309" } };
+        warn.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        warn.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
+        warn.border = { top: { style: "thin", color: { argb: "FFB45309" } },
+                        bottom: { style: "thin", color: { argb: "FFB45309" } },
+                        left: { style: "thin", color: { argb: "FFB45309" } },
+                        right: { style: "thin", color: { argb: "FFB45309" } } };
+        ws.getRow(hRow + 3).height = 24;
+        ws.getRow(hRow + 4).height = 24;
+
+        /* --- دانپێدانان --- */
+        ws.mergeCells("A" + (hRow + 6) + ":E" + (hRow + 7));
+        const decl = ws.getCell("A" + (hRow + 6));
+        decl.value = t.wkReceiptText;
+        decl.font = { name: "Arial", size: 10, italic: true, color: { argb: "FF444444" } };
+        decl.alignment = { horizontal: isRtl ? "right" : "left", vertical: "middle", wrapText: true };
+        ws.getRow(hRow + 6).height = 22;
+        ws.getRow(hRow + 7).height = 22;
+
+        /* --- واژوو --- */
+        const sr = hRow + 10;
+        const sLbl = [[t.wkReceiver, g.name], [t.wkIssuer, ""]];
+        [["A", "B"], ["D", "E"]].forEach((cols, i2) => {
+          const c1 = ws.getCell(cols[0] + sr);
+          c1.value = sLbl[i2][0] + ": " + sLbl[i2][1];
+          c1.font = { name: "Arial", size: 11, bold: true };
+          c1.alignment = { horizontal: "center", vertical: "middle" };
+          ws.mergeCells(cols[0] + sr + ":" + cols[1] + sr);
+
+          const c2 = ws.getCell(cols[0] + (sr + 2));
+          c2.value = t.wkSignature;
+          c2.font = { name: "Arial", size: 10, color: { argb: "FF666666" } };
+          c2.alignment = { horizontal: "center", vertical: "middle" };
+          ws.mergeCells(cols[0] + (sr + 2) + ":" + cols[1] + (sr + 2));
+          [cols[0], cols[1]].forEach(cc => {
+            ws.getCell(cc + (sr + 1)).border = { bottom: { style: "medium", color: { argb: "FF333333" } } };
+          });
+        });
+        ws.getRow(sr).height = 22;
+        ws.getRow(sr + 1).height = 30;
+      });
+    }
+
+    /* ═══════════ شیتی لیستی ڕۆژانە ═══════════ */
+    const ls = wb.addWorksheet(safeSheetName(t.wkSheetList, used), {
+      views: [{ rightToLeft: isRtl, state: "frozen", ySplit: 1 }],
+      pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+    });
+
+    const hdrs = [t.date, t.wkWorker, t.wkDays, t.wkHours, t.wkDailyRate, t.wkHourlyRate, t.wkAmount, t.note];
+    ls.columns = [
+      { width: 14 }, { width: 18 }, { width: 8 }, { width: 10 },
+      { width: 14 }, { width: 14 }, { width: 15 }, { width: 26 }
+    ];
+    const hr = ls.getRow(1);
+    hdrs.forEach((h, i2) => {
+      const c = hr.getCell(i2 + 1);
+      c.value = h;
+      c.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PRIMARY } };
+      c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      c.border = allThin;
+    });
+    hr.height = 26;
+
+    const sorted = filtered.slice().sort((x, y) => {
+      const c = String(x.workerName || "").localeCompare(String(y.workerName || ""));
+      return c !== 0 ? c : String(x.date || "").localeCompare(String(y.date || ""));
+    });
+
+    sorted.forEach((i2, idx) => {
+      const r = ls.getRow(idx + 2);
+      const isFull = Number(i2.days || 0) >= 1;
+      r.getCell(1).value = fmtDate(i2.date || "");
+      r.getCell(2).value = i2.workerName || "";
+      r.getCell(3).value = isFull ? "✔" : "✘";
+      r.getCell(4).value = Number(i2.overtimeHours || 0);
+      r.getCell(5).value = Number(i2.dailyRate || 0);
+      r.getCell(6).value = Number(i2.hourlyRate || 0);
+      r.getCell(7).value = Number(i2.amount || 0);
+      r.getCell(8).value = i2.note || "";
+      for (let c = 1; c <= 8; c++) {
+        const cell = r.getCell(c);
+        cell.border = allThin;
+        cell.font = { name: "Arial", size: 10 };
+        cell.alignment = { horizontal: c === 8 ? (isRtl ? "right" : "left") : "center", vertical: "middle" };
+        if (c >= 5 && c <= 7) cell.numFmt = "#,##0";
+      }
+      r.getCell(3).font = { name: "Arial", size: 12, bold: true,
+                            color: { argb: isFull ? "FF059669" : "FFEF4444" } };
+      r.getCell(7).font = { name: "Arial", size: 10, bold: true };
+      r.height = 19;
+    });
+
+    /* --- ڕیزی کۆی گشتی --- */
+    const tr = ls.getRow(sorted.length + 2);
+    tr.getCell(1).value = t.total;
+    tr.getCell(3).value = totalDays;
+    tr.getCell(4).value = totalOT;
+    tr.getCell(7).value = totalAmt;
+    for (let c = 1; c <= 8; c++) {
+      const cell = tr.getCell(c);
+      cell.font = { name: "Arial", size: 11, bold: true, color: { argb: "FF111111" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF6F2" } };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.border = { top: { style: "medium", color: { argb: "FF333333" } }, bottom: thin, left: thin, right: thin };
+      if (c === 7 || c === 4) cell.numFmt = "#,##0";
+    }
+    tr.height = 24;
+
+    /* ---------- داگرتن ---------- */
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const one = Object.keys(groups).length === 1 ? ("_" + Object.values(groups)[0].name) : "";
+    link.href = url;
+    link.download = "workers" + one + "_" + today() + ".xlsx";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  };
+
   const inputStyle = { width: "100%", padding: "8px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 13, textAlign: "center" };
   const numStyle = { ...inputStyle, direction: "ltr" };
   const labelStyle = { fontSize: 11, color: s.textMuted, fontWeight: 600, textAlign: "center", display: "block", marginBottom: 3 };
@@ -6299,11 +6575,11 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
             <h3 style={{ fontSize: 16, fontWeight: 700, color: s.text, marginBottom: 8 }}>{t.wkReceiptAsk}</h3>
             <p style={{ fontSize: 12, color: s.textMuted, marginBottom: 20, lineHeight: 1.7 }}>{t.wkReceiptAskHint}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => { setExcelAsk(false); doExport("excel"); setTimeout(printReceipt, 400); }}
+              <button onClick={() => { setExcelAsk(false); buildExcel(true); }}
                 style={{ padding: "11px 0", borderRadius: 8, border: "none", background: PRIMARY, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                 {t.wkReceiptYes}
               </button>
-              <button onClick={() => { setExcelAsk(false); doExport("excel"); }}
+              <button onClick={() => { setExcelAsk(false); buildExcel(false); }}
                 style={{ padding: "11px 0", borderRadius: 8, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 13, cursor: "pointer" }}>
                 {t.wkReceiptNo}
               </button>
