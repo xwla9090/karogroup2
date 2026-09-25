@@ -296,6 +296,7 @@ const T = {
     wkReceiptAskHint: "فایلی Excel دوو جۆر شیتی دەبێت: شیتی «وەسڵ» بۆ هەر کرێکارێک (بە لۆگۆ، کۆی ڕۆژ و سەعات و پارە، و شوێنی واژوو)، و شیتی «لیستی ڕۆژانە».",
     wkReceiptYes: "بەڵێ — وەسڵ + لیست", wkReceiptNo: "نەخێر — تەنها لیست",
     wkSheetList: "لیستی ڕۆژانە", wkFromDate: "لە بەرواری", wkToDate: "تا بەرواری",
+    wkSaved: "تۆمارکرا", wkSaveAndNext: "پاشەکەوت و ڕۆژی دواتر", wkDone: "تەواو",
     wkExcelNote: "⚠ تکایە پێش واژووکردن پارەکە بە وردی بژمێرە. دوای واژووکردن، هیچ بەرپرسیارێتییەک لەسەر کەمی پارەکە نامێنێت.",
     wkReceiver: "وەرگر", wkIssuer: "دەرکەر", wkSignature: "واژوو",
     wkReceiptText: "من، ناوی خوارەوە، دان بەوەدا دەنێم کە کۆی بڕی پارەی سەرەوەم بە تەواوی وەرگرتووە و هیچ داواکارییەکی دیکەم بۆ ئەم ماوەیە نەماوە.",
@@ -412,6 +413,7 @@ const T = {
     wkReceiptAskHint: "The Excel file gets two kinds of sheet: a Receipt sheet per worker (logo, total days, hours and amount, signature area), plus the Daily list sheet.",
     wkReceiptYes: "Yes - receipt + list", wkReceiptNo: "No - list only",
     wkSheetList: "Daily list", wkFromDate: "From date", wkToDate: "To date",
+    wkSaved: "Saved", wkSaveAndNext: "Save & next day", wkDone: "Done",
     wkExcelNote: "⚠ Please count the money carefully before signing. After signing, no claim for a shortfall will be accepted.",
     wkReceiver: "Received by", wkIssuer: "Issued by", wkSignature: "Signature",
     wkReceiptText: "I, the undersigned, confirm that I have received the full amount shown above and have no further claim for this period.",
@@ -528,6 +530,7 @@ const T = {
     wkReceiptAskHint: "يحتوي ملف Excel على نوعين من الأوراق: ورقة إيصال لكل عامل (شعار، مجموع الأيام والساعات والمبلغ، مكان للتوقيع)، وورقة القائمة اليومية.",
     wkReceiptYes: "نعم - إيصال + قائمة", wkReceiptNo: "لا - قائمة فقط",
     wkSheetList: "القائمة اليومية", wkFromDate: "من تاريخ", wkToDate: "إلى تاريخ",
+    wkSaved: "تم الحفظ", wkSaveAndNext: "حفظ واليوم التالي", wkDone: "تم",
     wkExcelNote: "⚠ يرجى عد المبلغ بدقة قبل التوقيع. بعد التوقيع لا تُقبل أي مطالبة بنقص المبلغ.",
     wkReceiver: "المستلم", wkIssuer: "المُصدِر", wkSignature: "التوقيع",
     wkReceiptText: "أنا الموقع أدناه أقر باستلام كامل المبلغ المذكور أعلاه ولا مطالبة لي عن هذه الفترة.",
@@ -589,7 +592,15 @@ const fmt = (n) => {
   const v = Number(n || 0); 
   return Math.round(v).toString();
 };
-const today = () => new Date().toISOString().split("T")[0];
+/* ⚠️ پێشتر toISOString() بەکارهاتبوو کە بەرەو UTC دەگۆڕێت — واتە
+   لە عێراق (UTC+3) هەر تۆمارێک لە نێوان ١٢ی شەو و ٣ی بەیانی
+   بەرواری دوێنێی وەردەگرت. ئێستا بەرواری ناوچەیی بەکاردێت. */
+const today = () => {
+  const d = new Date();
+  return d.getFullYear() + "-" +
+         String(d.getMonth() + 1).padStart(2, "0") + "-" +
+         String(d.getDate()).padStart(2, "0");
+};
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const getLS = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
 const setLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -5756,24 +5767,53 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
   const [confirmDelWorker, setConfirmDelWorker] = useState(null);
   const [workersModal, setWorkersModal] = useState(false);
   const [excelAsk, setExcelAsk] = useState(false);
+  const [justSaved, setJustSaved] = useState(null);
 
-  /* ---------- فۆڕمی تۆماری ڕۆژانە ---------- */
-  const blankForm = () => ({
-    date: today(), workerId: "", days: 1, overtimeHours: "",
-    dailyRate: "", hourlyRate: "", note: ""
-  });
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(blankForm());
-  const [editItem, setEditItem] = useState(null);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-
-  /* ---------- فلتەر ---------- */
+  /* ---------- فلتەر ----------
+     ⚠️ فلتەرەکان دەبێت پێش فۆڕمەکە پێناسە بکرێن، چونکە blankForm()
+     لە کاتی یەکەم render ـدا filterWorker دەخوێنێتەوە. */
   const [filterWorker, setFilterWorker] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [search, setSearch] = useState("");
   const [showMarkedOnly, setShowMarkedOnly] = useState(false);
+
+  /* ---------- فۆڕمی تۆماری ڕۆژانە ---------- */
+  /* ⭐ ئەگەر لە فلتەردا کرێکارێک هەڵبژێردرابێت، فۆڕمەکە خۆی
+     ئەو کرێکارە دەگرێتەوە — ئیتر پێویست ناکات هەموو جارێک
+     دووبارە ناوەکەی هەڵبژێریت. */
+  const blankForm = (keepWorkerId) => {
+    const wid = keepWorkerId !== undefined ? keepWorkerId : filterWorker;
+    const w = workers.find(x => String(x.id) === String(wid));
+    return {
+      date: today(),
+      workerId: w ? w.id : "",
+      days: 1,
+      overtimeHours: "",
+      dailyRate: w ? w.dailyRate : "",
+      hourlyRate: w ? w.hourlyRate : "",
+      note: ""
+    };
+  };
+
+  /* بەرواری ڕۆژی دواتر — بۆ تۆمارکردنی چەند ڕۆژی بەسەریەک */
+  const nextDay = (d) => {
+    /* ⚠️ toISOString() بەرەو UTC دەگۆڕێت — لە عێراق (UTC+3) ئەوە
+       بەروارەکە یەک ڕۆژ بەرەو دواوە دەبات. بۆیە بە دەست دروستی دەکەین. */
+    const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return d;
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    if (isNaN(dt.getTime())) return d;
+    dt.setDate(dt.getDate() + 1);
+    return dt.getFullYear() + "-" +
+           String(dt.getMonth() + 1).padStart(2, "0") + "-" +
+           String(dt.getDate()).padStart(2, "0");
+  };
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(blankForm());
+  const [editItem, setEditItem] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const [alert, setAlert] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
@@ -5855,6 +5895,16 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
     }));
   };
 
+  /* کاتێک لە فلتەردا کرێکار دەگۆڕیت، فۆڕمی کراوەش پێی دەگۆڕێت */
+  useEffect(() => {
+    if (editItem) return;
+    const w = workers.find(x => String(x.id) === String(filterWorker));
+    if (!w) return;
+    setForm(f => (String(f.workerId) === String(w.id) ? f
+      : { ...f, workerId: w.id, dailyRate: w.dailyRate, hourlyRate: w.hourlyRate }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterWorker]);
+
   const isFullDay = Number(form.days || 0) >= 1;
   const previewAmount = wkAmount(form.days, form.overtimeHours, form.dailyRate, form.hourlyRate);
 
@@ -5890,9 +5940,23 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
       ? prev.map(x => x.id === item.id ? item : x)
       : [item, ...prev.filter(x => x.id !== item.id)]);
 
-    setEditModalOpen(false);
-    setShowForm(false);
-    resetForm();
+    if (editItem) {
+      setEditModalOpen(false);
+      resetForm();
+    } else {
+      /* ⭐ فۆڕم کراوە دەمێنێتەوە و هەمان کرێکار هەڵدەگرێت، بەڵام
+         بەروار دەچێتە ڕۆژی دواتر — بۆ تۆمارکردنی خێرای چەند ڕۆژ.
+         بەروارەکە بەرچاوە و دەکرێت بگۆڕدرێت. */
+      setJustSaved(item.workerName + " · " + fmtDate(item.date) + " · " + fmt(item.amount));
+      setForm(f => ({
+        ...f,
+        date: nextDay(f.date),
+        days: 1,
+        overtimeHours: "",
+        note: ""
+      }));
+      setTimeout(() => setJustSaved(null), 3500);
+    }
     try { await karoDB.from("worker_days").upsert([wkToRow(item, pKey)]); }
     catch (e) { console.error("[worker_days save]", e); }
   };
@@ -6421,7 +6485,7 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
             <button onClick={() => setSizeModal({ type: "pdf" })} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> PDF</button>
             <button onClick={() => setExcelAsk(true)} style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}><I.Download /> {t.saveExcel}</button>
             {!isFrozen && (
-              <button onClick={() => { setShowForm(!showForm); resetForm(); }} style={{ padding: "7px 16px", borderRadius: 6, border: "none", background: showForm ? "#EF4444" : PRIMARY, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
+              <button onClick={() => { setShowForm(!showForm); setJustSaved(null); resetForm(); }} style={{ padding: "7px 16px", borderRadius: 6, border: "none", background: showForm ? "#EF4444" : PRIMARY, color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
                 {showForm ? <>✕ {t.cancel}</> : <><I.Plus /> {t.wkAddEntry}</>}
               </button>
             )}
@@ -6480,9 +6544,14 @@ function WorkersPage({ t, s, isRtl, pKey, isFrozen }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 12 }}>
             {entryFields}
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "center" }}>
-            <button onClick={handleSave} style={{ padding: "8px 24px", borderRadius: 6, border: "none", background: PRIMARY, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{t.save}</button>
-            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ padding: "8px 24px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 13, cursor: "pointer" }}>{t.cancel}</button>
+          {justSaved && (
+            <div style={{ marginTop: 14, padding: "8px 14px", borderRadius: 8, background: "#D1FAE5", color: "#059669", fontSize: 12, fontWeight: 700, textAlign: "center" }}>
+              ✅ {t.wkSaved}: {justSaved}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "center" }}>
+            <button onClick={handleSave} style={{ padding: "9px 28px", borderRadius: 6, border: "none", background: PRIMARY, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{t.wkSaveAndNext}</button>
+            <button onClick={() => { setShowForm(false); setJustSaved(null); resetForm(); }} style={{ padding: "9px 24px", borderRadius: 6, border: `1px solid ${s.border}`, background: s.bgCard2, color: s.text, fontSize: 13, cursor: "pointer" }}>{t.wkDone}</button>
           </div>
         </div>
       )}
