@@ -1,13 +1,25 @@
 /* تاقیکردنەوەی یاساکانی MERGE — دڵنیابوون لەوەی داتا نە دەگەڕێتەوە
    نە خۆکار دەسڕێتەوە. */
 
+/* mock ـی سێرڤەر. global.__mockRows ڕیزەکانی هەر تەیبڵێک دادەنێت،
+   و range() وەک Supabase بە پەڕە دەیانگەڕێنێتەوە. */
 jest.mock("./supabase", () => ({
   supabase: {
-    from: () => ({
+    from: (table) => ({
       upsert: async () => ({ error: null }),
+      insert: async () => ({ error: null }),
       delete: () => ({ eq: async () => ({ error: null }) }),
       update: () => ({ eq: async () => ({ error: null }) }),
-      select: () => ({ eq: async () => ({ data: [], error: null }) })
+      select: () => ({
+        eq: () => ({
+          order: () => ({
+            range: async (from, to) => {
+              const all = (global.__mockRows && global.__mockRows[table]) || [];
+              return { data: all.slice(from, to + 1), error: null };
+            }
+          })
+        })
+      })
     }),
     rpc: async () => ({ data: null, error: null })
   }
@@ -140,4 +152,40 @@ test("١١) سێرڤەری ناوەڕۆکدار هێشتا ڕیزی سڕاو ل�
   ]);
   sync.mergeRemote("expenses", P, [row("keep", 1)], { full: true });
   expect(sync.localList("expenses", P).map(r => r.id)).toEqual(["keep"]);
+});
+
+test("١٢) زیاتر لە ١٠٠٠ ڕیز: هەموویان دەهێندرێن، هیچیان ناسڕدرێنەوە", async () => {
+  /* Supabase لە ١٠٠٠ ڕیز دەبڕێت. پێشتر ئەوە وایدەکرد ١٠٩٥ ڕیز
+     ببێتە ١٠٠٠ و ئەو ٩٥ ـەی تر لە ئامێرەکە بسڕدرێنەوە. */
+  const BIG = 1095;
+  global.__mockRows = {
+    expenses: Array.from({ length: BIG }, (_, i) =>
+      row("e" + String(i).padStart(5, "0"), 1000 + i))
+  };
+
+  const changed = await sync.reconcileTable("expenses", P);
+
+  expect(changed).toBe(true);
+  expect(sync.localList("expenses", P)).toHaveLength(BIG);      // ⭐ هەموویان
+  delete global.__mockRows;
+});
+
+test("١٣) ڕیزی ناوخۆیی لەناو ئەو ٩٥ ـەی سەرووی ١٠٠٠ ناسڕدرێتەوە", async () => {
+  const BIG = 1095;
+  const serverRows = Array.from({ length: BIG }, (_, i) =>
+    row("e" + String(i).padStart(5, "0"), 1000 + i));
+  global.__mockRows = { expenses: serverRows };
+
+  // ئامێرەکە پێشتر هەموو ١٠٩٥ ـەکەی هەیە
+  sync.saveLocalList("expenses", P, serverRows.map(r => ({
+    id: r.id, date: r.date, amountIQD: r.amountiqd, amountUSD: 0,
+    receiptNo: "", note: "", marked: false
+  })));
+
+  await sync.reconcileTable("expenses", P);
+
+  const ids = sync.localList("expenses", P).map(r => r.id);
+  expect(ids).toHaveLength(BIG);
+  expect(ids).toContain("e01094");          // ⭐ دوایین ڕیز هێشتا هەیە
+  delete global.__mockRows;
 });

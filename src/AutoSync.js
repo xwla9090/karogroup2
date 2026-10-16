@@ -51,8 +51,21 @@ export default function AutoSync({ project }) {
       try {
         const log = getLS("karo_cashLog_" + project);
         if (!log.length) return;
-        const { data } = await supabase.from("cash_history").select("id").eq("project", project);
-        const remote = new Set((data || []).map(h => h.id));
+        /* ⚠️ هەمان کێشەی سنووری ١٠٠٠ ڕیز — بە پەڕە بخوێنەرەوە، ئەگینا
+           تۆمارە کۆنەکان بە هەڵە وەک «نەگەیشتوو» دادەنرێن و
+           دووبارە دەنێردرێنەوە. */
+        const remote = new Set();
+        for (let page = 0; page < 200; page++) {
+          const from = page * 1000;
+          const { data, error } = await supabase.from("cash_history")
+            .select("id").eq("project", project)
+            .order("id", { ascending: true })
+            .range(from, from + 999);
+          if (error) return;
+          const batch = data || [];
+          batch.forEach(h => remote.add(h.id));
+          if (batch.length < 1000) break;
+        }
         const missing = log
           .filter(l => l && l.id && !remote.has(l.id))
           .map(l => ({

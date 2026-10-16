@@ -206,7 +206,15 @@ function pendingIds(table) {
   return s;
 }
 
-export function pendingCount() { return getPending().length; }
+/** ⭐ هەموو ڕیزەکانی چاوەڕوان — نەک تەنها ڕیزی تۆمارەکان.
+    پێشتر تەنها تۆمارەکانی دەژمارد، بۆیە نیشاندەری sync سەوز دەبوو
+    («هەموو شتێک پاشەکەوتکراوە») لە کاتێکدا گۆڕانکاریی قاسە هێشتا
+    نەنێردرابوو — و ئاگادارکردنەوەی داخستنی پەڕەش کار نەدەکرد. */
+export function pendingCount() {
+  return getPending().length
+       + arr(jget(CASH_Q_KEY, [])).length
+       + arr(jget(RAW_Q_KEY, [])).length;
+}
 
 /** یەک op زیاد بکە و یەکسەر flush بکە (بێ هیچ دواکەوتنێک) */
 function enqueue(op) {
@@ -483,12 +491,44 @@ export const karoDB = {
 /* ============================ RECONCILE ============================
    تۆڕی سەلامەتی: هەموو تەیبڵێک بخوێنەوە و MERGE بکە (نەک overwrite).
    ================================================================== */
+/* ⚠️ Supabase/PostgREST وەڵامەکان لە ١٠٠٠ ڕیز دەبڕێت.
+   پێشتر select("*") ـێکی سادە بەکاردەهات و کۆد وای دەزانی ئەوە
+   لیستی تەواوی سێرڤەرە — بۆیە هەموو ڕیزێکی ناوخۆیی کە لەو ١٠٠٠ ـەدا
+   نەبوو دەسڕایەوە، هەرچەندە لە سێرڤەر مابوو. ئەمە وایدەکرد داتا
+   ون بێت و دواتر دیسان دەربکەوێتەوە.
+   ئێستا بە پەڕە (page) دەخوێندرێتەوە تا هەمووی کۆدەبێتەوە. */
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 200;            // قەڵغان — تا ٢٠٠,٠٠٠ ڕیز
+
+async function fetchAllRows(table, project) {
+  const all = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE_SIZE;
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .eq("project", project)
+      .order("id", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) return { error, rows: null };
+    const batch = data || [];
+    for (const r of batch) all.push(r);
+    if (batch.length < PAGE_SIZE) return { error: null, rows: all };
+  }
+  /* زۆر پەڕە — ناتوانین دڵنیا بین لیستەکە تەواوە */
+  console.warn("[sync] " + table + ": پەڕەکان زۆر بوون — merge ـی تەواو ناکرێت");
+  return { error: null, rows: all, partial: true };
+}
+
 export async function reconcileTable(table, project) {
   if (!TABLES[table] || !project) return false;
   try {
-    const { data, error } = await supabase.from(table).select("*").eq("project", project);
-    if (error || !data) return false;
-    return mergeRemote(table, project, data, { full: true });
+    const { error, rows, partial } = await fetchAllRows(table, project);
+    /* ⭐ لە کاتی هەڵەدا هیچ مەکە — بە تایبەتی هیچ مەسڕەوە */
+    if (error || !rows) return false;
+    /* ئەگەر دڵنیا نین لیستەکە تەواوە، تەنها نوێ بکەرەوە — مەیسڕەوە */
+    return mergeRemote(table, project, rows, { full: !partial });
   } catch (e) {
     console.warn("[sync] reconcile failed", table, e && e.message);
     return false;
@@ -573,10 +613,19 @@ export function cashDelta(project, dIQD, dUSD, logEntry) {
   writeLocalCash(project, cur.iqd + di, cur.usd + du, null);
   appendLocalLog(project, logEntry);
 
-  /* ٢) سێرڤەر — بە زنجیرە، تا دوو delta تێکەڵ نەبن */
+  /* ٢) ⭐⭐ یەکەم پاشەکەوتی بکە، پاشان بینێرە.
+     پێشتر گۆڕانکاریی قاسە ڕاستەوخۆ دەنێردرا بەبێ ئەوەی پاشەکەوت بکرێت.
+     ئەگەر بەکارهێنەر چەند خەرجییەک بە خێرایی تۆمار بکات، ئەوانە لە
+     زنجیرەیەکدا ڕیز دەبن و چەند چرکەیەک دەخایەنێت. ئەگەر براوسەرەکە
+     لەو ماوەیەدا دابخرێت، ئەو گۆڕانکارییانەی قاسە بۆ هەتاهەتایە
+     لەدەست دەچوون — هەرچەندە تۆمارەکانی خەرجی پارێزراو دەبوون.
+     ئەمە وایدەکرد قاسە زیاتر دەربکەوێت لەوەی ڕاستی بێت. */
+  const opId = queueCashOp({ kind: "delta", project, di, du, logEntry });
+
   cashInFlight++;
   cashChain = cashChain
-    .then(() => sendCashDelta(project, di, du, logEntry))
+    .then(() => sendCashDelta(project, di, du, logEntry, true))
+    .then(r => { if (!r || !r.error) dequeueCashOp(opId); return r; })
     .catch(() => {})
     .then(r => { cashInFlight--; return r; });
   return cashChain;
@@ -585,7 +634,7 @@ export function cashDelta(project, dIQD, dUSD, logEntry) {
 async function sendCashDelta(project, di, du, logEntry, retry) {
   if (di === 0 && du === 0 && !logEntry) return { error: null };
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
-    queueCashDelta(project, di, du, logEntry);
+    if (!retry) queueCashDelta(project, di, du, logEntry);
     return { error: null, queued: true };
   }
 
@@ -657,42 +706,76 @@ async function sendCashDelta(project, di, du, logEntry, retry) {
       /* ڕیزەکە لە کاتی خوێندنەوە و نووسیندا گۆڕا → دووبارە */
     } catch (e) {
       if (attempt === 3) {
-        queueCashDelta(project, di, du, logEntry);
+        if (!retry) queueCashDelta(project, di, du, logEntry);
         return { error: e, queued: true };
       }
     }
   }
-  queueCashDelta(project, di, du, logEntry);
+  if (!retry) queueCashDelta(project, di, du, logEntry);
   return { error: new Error("cash delta: retries exhausted"), queued: true };
 }
 
 /* ---- ڕیزی چاوەڕوانی قاسە (offline) ---- */
 const CASH_Q_KEY = "karo_cashq_v3";
-function queueCashDelta(project, di, du, logEntry) {
-  const q = arr(jget(CASH_Q_KEY, []));
-  q.push({ kind: "delta", project, di, du, logEntry, ts: Date.now() });
+
+const newOpId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+/** ڕیزەکە بخوێنەرەوە — بۆ ئایتمە کۆنەکانیش opId دابنێ */
+function getCashQueue() {
+  let q = arr(jget(CASH_Q_KEY, []));
+  let changed = false;
+  q = q.map(o => {
+    if (o && !o.opId) { changed = true; return { ...o, opId: newOpId() }; }
+    return o;
+  });
+  if (changed) jset(CASH_Q_KEY, q);
+  return q;
+}
+
+/** کردارێک زیاد بکە و opId ـەکەی بگەڕێنەوە */
+function queueCashOp(op) {
+  const q = getCashQueue();
+  const opId = newOpId();
+  q.push({ ...op, opId, ts: Date.now() });
   jset(CASH_Q_KEY, q);
+  return opId;
+}
+
+/** تەنها پاش سەرکەوتن لایدەبەین */
+function dequeueCashOp(opId) {
+  if (!opId) return;
+  jset(CASH_Q_KEY, getCashQueue().filter(o => o.opId !== opId));
+}
+
+function queueCashDelta(project, di, du, logEntry) {
+  return queueCashOp({ kind: "delta", project, di, du, logEntry });
 }
 
 /* نرخی ئاڵوگۆڕ: تەنها نوێترین بۆ هەر پرۆژەیەک دەمێنێتەوە */
 function queueCashRate(project, rate) {
-  const q = arr(jget(CASH_Q_KEY, [])).filter(x => !(x.kind === "rate" && x.project === project));
-  q.push({ kind: "rate", project, rate, ts: Date.now() });
-  jset(CASH_Q_KEY, q);
+  jset(CASH_Q_KEY, getCashQueue().filter(x => !(x.kind === "rate" && x.project === project)));
+  return queueCashOp({ kind: "rate", project, rate });
 }
 export async function flushCashQueue() {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return;
-  let q = arr(jget(CASH_Q_KEY, []));
-  if (!q.length) return;
-  jset(CASH_Q_KEY, []);
-  const failed = [];
-  for (const item of q) {
+  const snapshot = getCashQueue();
+  if (!snapshot.length) return;
+
+  /* ⭐⭐ پێشتر ڕیزەکە یەکسەر بەتاڵ دەکرایەوە پێش ناردن. ئەگەر
+     براوسەرەکە لە ناوەڕاستی ناردندا دادەخرا، ئەوانەی مابوون بۆ
+     هەتاهەتایە لەدەست دەچوون. ئێستا هەر ئایتمێک تەنها پاش
+     سەرکەوتنی خۆی لادەبرێت. */
+  for (const item of snapshot) {
     const r = item.kind === "rate"
       ? await sendCashRate(item.project, item.rate, true)
       : await sendCashDelta(item.project, item.di, item.du, item.logEntry, true);
-    if (r && r.error) failed.push(item);
+
+    if (r && !r.error) {
+      dequeueCashOp(item.opId);
+    } else if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      break;                       // تۆڕ کەوتووە — دواتر دووبارە هەوڵ دەدەین
+    }
   }
-  if (failed.length) jset(CASH_Q_KEY, arr(jget(CASH_Q_KEY, [])).concat(failed));
 }
 
 function applyServerCash(project, data) {
@@ -752,9 +835,12 @@ export function cashSetRate(project, rate) {
   if (!project || project === "default") return Promise.resolve({ error: null });
   const r = N(rate) || 1500;
   jset(cashLSKeys(project).rate, r);
+  /* ⭐ یەکەم پاشەکەوت، پاشان ناردن — وەک cashDelta */
+  const opId = queueCashRate(project, r);
   cashInFlight++;
   cashChain = cashChain
-    .then(() => sendCashRate(project, r))
+    .then(() => sendCashRate(project, r, true))
+    .then(res => { if (!res || !res.error) dequeueCashOp(opId); return res; })
     .catch(() => {})
     .then(res => { cashInFlight--; return res; });
   return cashChain;
@@ -762,7 +848,7 @@ export function cashSetRate(project, rate) {
 
 async function sendCashRate(project, r, isRetry) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
-    queueCashRate(project, r);
+    if (!isRetry) queueCashRate(project, r);
     return { error: null, queued: true };
   }
   try {
